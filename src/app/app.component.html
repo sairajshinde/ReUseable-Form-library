@@ -1,0 +1,51 @@
+<form [formGroup]="studentForm" (ngSubmit)="onSubmit()">
+  <div libDynamicRow>
+    <input libText libLabelText="Name of the Student" libUiUnderline libRequired formControlName="name" />
+    <input libDate libLabelText="Date of Birth of Student" libUiUnderline libRequired formControlName="dob" />
+    <select [libSelect]="genderOptions" libLabelText="Gender" libRequired formControlName="email" ></select>
+    <input libEmail libLabelText="Student Email ID" libUiUnderline libRequired formControlName="email" />
+  </div>
+
+  <div libDynamicRow>
+    <input libText libLabelText="Martial Status of Student" libUiUnderline formControlName="studentContact" />
+    <select [libSelect]="genderOptions" libLabelText="Student Contact Nos." libRequired formControlName="parentName"></select>
+    <input libText libLabelText="Name of the Employee(Parent)" libUiUnderline libRequired formControlName="parentContact" />
+    <input libText libLabelText="Employee Contact Nos." libUiUnderline formControlName="marksB" />
+  </div>
+
+  <div libDynamicRow>
+    <input libText libLabelText="Exam Passed" libUiUnderline formControlName="examPassed" />
+    <select [libSelect]="genderOptions" libLabelText="Passed in First Attempt" libRequired formControlName="parentName"></select>
+    <input libText libLabelText="Marks Obtained in all the Subjects" libUiUnderline formControlName="aggregate" />
+    <input libText libLabelText="Cumulative Grade Point Average" libUiUnderline formControlName="marksB" />
+  </div>
+
+  <div libDynamicRow>
+    <input libDate libLabelText="Result Date" libUiUnderline libRequired formControlName="dob" />
+    <input libText libLabelText="Aggregate%" libUiUnderline formControlName="outOfA" />
+    <select [libSelect]="genderOptions" libLabelText="Scheme applied for" libRequired formControlName="parentName"></select>
+    <select [libSelect]="genderOptions" libLabelText="Course applied for" libRequired formControlName="parentName"></select>
+  </div>
+
+  <div libDynamicRow>
+    <select [libSelect]="genderOptions" libLabelText="Duration of the course" libRequired formControlName="parentName"></select>
+    <select [libSelect]="genderOptions" libLabelText="Current Year" libRequired formControlName="parentName"></select>
+    <input libText libLabelText="Name of the college/University admitted to" libUiUnderline formControlName="studentContact" />
+  </div>
+  <div libDynamicRow>
+    <input libFileupload libLabelText="Address of the college/University"  formControlName="studentContact" />
+    <input libFileupload libLabelText="Name of the college/University admitted to"  formControlName="studentContact" />
+  </div>
+
+  <div>
+    *Note: Both the Semester Marksheets as per the academic year should be scanned in one page and attached - next to marksheet attachment column
+  </div>
+
+  <div>
+    <button type="submit">SUBMIT</button>
+    <button type="button" (click)="onReset()">RESET</button>
+  </div>
+</form>
+<div style="margin: 15px;">
+  <span>text1</span> Text
+</div>
