@@ -1,6 +1,6 @@
 /*
- * Public API Surface of your-lib-name
- */
+* Public API Surface of your-lib-name
+*/
 
 // Utility Directives
 export * from './lib/directives/style/dynamic-row.directive';
@@ -18,6 +18,12 @@ export * from './lib/directives/type/tel.directive';
 export * from './lib/directives/type/text.directive';
 export * from './lib/directives/type/textarea.directive';
 export * from './lib/directives/validation/required.directive';
+export * from './lib/directives/style/single-slash-input.directive';
+export * from './lib/directives/type/number.directive';
+export * from './lib/directives/buttons/primary-button.directive';
 export * from './lib/directives/ui-directives.module';
-
-
+export * from './lib/directives/Menu-Bar/menu-bar.directive';
+export * from './lib/directives/table/custom-table.directive';
+export * from './lib/directives/style/dual-input-field.directive';
+export * from './lib/directives/style/mobile.directive';
+export * from './lib/directives/type/floatNumber.directive';

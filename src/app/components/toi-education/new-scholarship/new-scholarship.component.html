@@ -1,0 +1,154 @@
+<div class="header">
+<div class="logo" [routerLink]="['/toi-education']" routerLinkActive="router-link-active" >
+    <img src="logo/toiEdu.png" alt="">
+</div>
+<div [libMenuBar]="['right', menu]"></div>
+</div>
+
+  <div class="d-flex align-items-center p-2 form-title">
+    <div class="col">
+      <h5 class="text-center">INFORMATION OF THE STUDENT</h5>
+    </div>
+  </div>
+
+<form [formGroup]="studentForm" (ngSubmit)="onSubmit()" style="margin: 30px 0px 30px 40px;">
+  <div libDynamicRow>
+    <input libText [libLabelText]="['', 'Name of the Student']" libUiUnderline libRequired formControlName="childName" />
+    <div>
+        <input libDate [libLabelText]="['', 'Date of Birth of Student']" libUiUnderline libRequired formControlName="childDob" (change)="handleDOB()"/>
+    <div class="errorMsg" *ngIf="dobTooRecent">
+        Please enter a valid DOB.
+      </div>
+    </div>
+  
+    <select [libSelect]="genderOptions" [libLabelText]="['', 'Gender of Student']" libRequired formControlName="childGender"></select>
+    <div>
+      <input libEmail [libLabelText]="['', 'Student Email ID']" libUiUnderline libRequired formControlName="childEmailId" />
+      <div class="errorMsg" *ngIf="studentForm.get('childEmailId')?.errors?.['email'] && studentForm.get('childEmailId')?.touched && studentForm.get('childEmailId')?.value">
+        Please enter a valid email.
+      </div>
+    </div>
+  </div>
+
+  <div libDynamicRow>
+    <select [libSelect]="maritalStatuses" [libLabelText]="['', 'Marital Status of Student']" libRequired formControlName="childMarritalStatus"></select>
+    <div>
+      <input libMobile [libLabelText]="['', 'Student Mobile Number']" libUiUnderline libRequired formControlName="childMobile" />
+      <div class="errorMsg" 
+     *ngIf="studentForm.get('childMobile')?.errors?.['pattern'] && 
+            studentForm.get('childMobile')?.touched && 
+            studentForm.get('childMobile')?.value">
+  Please enter a valid mobile number <br> 
+  (must start with 6-9 and be 10 digits).
+</div>
+
+    </div>
+    
+    <input libText [libLabelText]="['', 'Name of the Employee (Parent)']" libUiUnderline libRequired formControlName="parentName" />
+    <div>
+      <input libMobile [libLabelText]="['', 'Employee Mobile Number']" libUiUnderline libRequired formControlName="childContactNo" />
+      <div class="errorMsg" 
+     *ngIf="studentForm.get('childContactNo')?.errors?.['pattern'] && 
+            studentForm.get('childContactNo')?.touched && 
+            studentForm.get('childContactNo')?.value">
+  Please enter a valid mobile number <br>
+  (must start with 6-9 and be 10 digits).
+</div>
+
+    </div>
+    
+  </div>
+
+  <div libDynamicRow>
+    <input libText [libLabelText]="['', 'Exam Passed (e.g. B.Sc., B.E., MBBS)']" libUiUnderline libRequired formControlName="examPassed" />
+    <select [libSelect]="attempts" [libLabelText]="['', 'Passed in First Attempt']" libRequired formControlName="firstAttempt"></select>
+
+      <div>
+      <input
+        libDate
+        [libLabelText]="['', 'Result Date']"
+        libUiUnderline
+        libRequired
+        formControlName="passedYear"
+      />
+      <div *ngIf="isResultDateOutOfRange" class="errorMsg">
+        Date should be within the past year (excluding today and future).
+      </div>
+    </div>
+
+
+    <input libText [libLabelText]="['', 'Name of the college/University admitted to']" libUiUnderline libRequired formControlName="nameOfCollege" />
+  </div>
+
+  <div libDynamicRow>
+    <div>
+      <div [libDualInputField]='["a.", "out of"]' [libLabelText]="['', 'Marks obtained in all subjects (fill either a or b)']">
+        <input [libNumber]="[4,0]" libUiUnderline formControlName="marksObtained" />
+        <input [libNumber]="[4,0]" libUiUnderline formControlName="marksTotal" />
+      </div>
+    </div>
+    <div>
+      <div [libDualInputField]='["b.", "out of"]' [libLabelText]="['', 'Cumulative Grade Point Average (CGPA)']">
+        <input [libFloatNumber]="[2,2]" libUiUnderline formControlName="cgpaA" />
+        <input [libFloatNumber]="[2,2]" libUiUnderline formControlName="cgpaB" />
+      </div>
+    </div>
+    <input libText formControlName="aggregate" [libLabelText]="['', 'Aggregate%']" libUiUnderline [readonly]="true" />
+  </div>
+
+  <div libDynamicRow>
+    <select [libSelect]="schemes" [libLabelText]="['', 'Scheme applied for']" libRequired formControlName="schemeApplied" (change)="onSchemeChange($event)"></select>
+    <div>
+      <select [libSelect]="currentCourseOptions" [libLabelText]="['', 'Course applied for']" libRequired formControlName="courseApplied" (change)="onCourseChange($event)"></select>
+      <input *ngIf="showOtherCourseInput" libText placeholder="Enter Course Name" formControlName="otherCourse" libUiUnderline />
+    </div>
+    <select [libSelect]="durationYears" [libLabelText]="['', 'Duration of the course']" libRequired formControlName="durationOfCourse"></select>
+    <select [libSelect]="years" [libLabelText]="['', 'Current Year of the course']" libRequired formControlName="schemeYears"></select>
+  </div>
+
+  <div style="font-family: open sans; font-weight: bold; padding-bottom: 15px;">Attachments</div>
+
+  <div libDynamicRow>
+    <input 
+      libFileupload 
+      class="textBlack" 
+      libRequired 
+      [libLabelText]="['#000', 'Student Marksheet - Class X/XII/Degree']" 
+      formControlName="attachment1" 
+      (fileSelected)="onFileChange($event, 'attachment1')" 
+      (fileCleared)="onRemove('attachment1')" />
+      <input 
+      libFileupload 
+      class="textBlack" 
+      libRequired 
+       [libLabelText]="['#000', 'Letter of Admission from the institute OR Receipt of fees Paid']" formControlName="attachment2" 
+      (fileSelected)="onFileChange($event, 'attachment2')"
+      (fileCleared)="onRemove('attachment2')" />
+
+    <div *ngIf="special">
+         <input libFileupload class="textBlack" [libLabelText]="['#000', 'Special Student supporting document']" formControlName="attachment3" (fileSelected)="onFileChange($event, 'attachment3')" (fileCleared)="onRemove('attachment3')"/>
+    </div>
+    <div *ngIf="achiver">
+      <input libFileupload class="textBlack" [libLabelText]="['#000', 'National / State Level Achievement Certificate']" formControlName="attachment4" (fileSelected)="onFileChange($event, 'attachment4')" (fileCleared)="onRemove('attachment4')"/>
+    </div>
+  </div>
+
+  <div style="font-family: open sans;">
+    <p>
+      <span class="fw-semibold"><span class="errorMsg">*</span>Note:</span>
+      <span style="font-size: 14px;">
+        Both the Semester Marksheets as per the academic year should be scanned in one page and attached - next to marksheet attachment column
+      </span>
+    </p>
+  </div>
+
+  <div>
+    <button type="submit" libPrimaryButton="center,UPDATE" *ngIf="flag === 'edit'"></button>
+    <button type="button" libPrimaryButton="center,BACK" *ngIf="flag === 'edit'" (click)="onReset();onBack();"></button>
+    <button type="submit" libPrimaryButton="center,SUBMIT" *ngIf="flag !== 'edit'"></button>
+    <button type="button" libPrimaryButton="center,RESET" (click)="onReset()" *ngIf="flag !== 'edit'">RESET</button>
+  </div>
+</form>
+
+
+<router-outlet></router-outlet>

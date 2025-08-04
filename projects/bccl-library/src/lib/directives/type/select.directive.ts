@@ -3,6 +3,8 @@ import {
   ElementRef,
   Input,
   OnInit,
+  OnChanges,
+  SimpleChanges,
   Renderer2
 } from '@angular/core';
 
@@ -10,21 +12,24 @@ import {
   selector: '[libSelect]',
   standalone: true
 })
-export class SelectDirective implements OnInit {
-  /**
-   * Accepts: [{ id: number | string, label: string }]
-   */
+export class SelectDirective implements OnInit, OnChanges {
   @Input('libSelect') options: Array<{ id: string | number; label: string }> = [];
 
   constructor(private el: ElementRef, private renderer: Renderer2) {}
 
   ngOnInit(): void {
-    const select = this.el.nativeElement;
+    this.applyStyles();
+    this.renderOptions();
+  }
 
-    if (select.tagName.toLowerCase() !== 'select') {
-      console.warn('[libSelect] directive should be applied to a <select> element.');
-      return;
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['options']) {
+      this.renderOptions();
     }
+  }
+
+  private renderOptions(): void {
+    const select = this.el.nativeElement;
 
     // Clear existing options
     while (select.firstChild) {
@@ -44,8 +49,10 @@ export class SelectDirective implements OnInit {
       this.renderer.setProperty(optionEl, 'innerText', opt.label);
       this.renderer.appendChild(select, optionEl);
     });
+  }
 
-    // ✅ Underline input styles
+  private applyStyles(): void {
+    const select = this.el.nativeElement;
     this.renderer.setStyle(select, 'border', 'none');
     this.renderer.setStyle(select, 'borderBottom', '2px solid #ccc');
     this.renderer.setStyle(select, 'outline', 'none');
@@ -58,21 +65,17 @@ export class SelectDirective implements OnInit {
     this.renderer.setStyle(select, 'width', '100%');
     this.renderer.setStyle(select, 'maxWidth', '250px');
     this.renderer.setStyle(select, 'cursor', 'pointer');
-
-    // ✅ Remove native dropdown styling
     this.renderer.setStyle(select, 'appearance', 'none');
     this.renderer.setStyle(select, '-webkit-appearance', 'none');
     this.renderer.setStyle(select, '-moz-appearance', 'none');
 
-    // ✅ Add outlined down arrow icon as background
     const arrowSvg = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='gray' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpolyline points='6 9 12 15 18 9' /%3E%3C/svg%3E")`;
     this.renderer.setStyle(select, 'backgroundImage', arrowSvg);
     this.renderer.setStyle(select, 'backgroundRepeat', 'no-repeat');
-    this.renderer.setStyle(select, 'backgroundPosition', 'right 8px center'); // Align arrow
-    this.renderer.setStyle(select, 'backgroundSize', '16px 16px'); // Smaller arrow
-    this.renderer.setStyle(select, 'paddingRight', '30px'); // Space for arrow
+    this.renderer.setStyle(select, 'backgroundPosition', 'right 8px center');
+    this.renderer.setStyle(select, 'backgroundSize', '16px 16px');
+    this.renderer.setStyle(select, 'paddingRight', '30px');
 
-    // ✅ Focus underline
     this.renderer.listen(select, 'focus', () => {
       this.renderer.setStyle(select, 'borderBottom', '2px solid #1976d2');
     });
@@ -82,3 +85,5 @@ export class SelectDirective implements OnInit {
     });
   }
 }
+
+ 

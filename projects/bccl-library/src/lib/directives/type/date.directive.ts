@@ -20,14 +20,18 @@ export class DateDirective implements OnInit {
       return;
     }
 
-    // Set type and attributes
+    // Set input type and attributes
     this.renderer.setAttribute(input, 'type', 'date');
     this.renderer.setAttribute(input, 'placeholder', 'Select date');
     this.renderer.setAttribute(input, 'autocomplete', 'off');
 
-    // Input styles
-    this.renderer.setStyle(input, '-webkit-appearance', 'none');
-    this.renderer.setStyle(input, 'appearance', 'none');
+    // Prevent typing but allow native calendar
+    this.renderer.listen(input, 'keydown', (event: KeyboardEvent) => {
+      event.preventDefault();
+    });
+    this.renderer.setStyle(input, 'cursor', 'pointer');
+
+    // Input styling
     this.renderer.setStyle(input, 'paddingRight', '36px');
     this.renderer.setStyle(input, 'border', 'none');
     this.renderer.setStyle(input, 'borderBottom', '2px solid #ccc');
@@ -54,7 +58,7 @@ export class DateDirective implements OnInit {
       this.renderer.appendChild(wrapper, input);
     }
 
-    // Custom icon
+    // Optional: Add custom clickable calendar icon
     const icon = this.renderer.createElement('span');
     this.renderer.setStyle(icon, 'position', 'absolute');
     this.renderer.setStyle(icon, 'top', 'calc(50% + 1px)');
@@ -66,22 +70,12 @@ export class DateDirective implements OnInit {
     this.renderer.setStyle(icon, 'zIndex', '3');
     this.renderer.setStyle(icon, 'pointerEvents', 'auto');
 
-    // this.renderer.setProperty(icon, 'innerHTML', `
-    //   <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-    //     xmlns="http://www.w3.org/2000/svg">
-    //     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"
-    //       stroke="#999999" stroke-width="2" fill="none"/>
-    //     <line x1="8" y1="2" x2="8" y2="6" stroke="#999999" stroke-width="2"/>
-    //     <line x1="16" y1="2" x2="16" y2="6" stroke="#999999" stroke-width="2"/>
-    //     <line x1="3" y1="10" x2="21" y2="10" stroke="#999999" stroke-width="2"/>
-    //     <polyline points="9 16 11.5 18.5 15 14" stroke="#999999"
-    //       stroke-width="2" fill="none"/>
-    //   </svg>
-    // `);
+    // Optional: add a calendar SVG icon (commented out)
+    // this.renderer.setProperty(icon, 'innerHTML', `<svg>...</svg>`);
 
     this.renderer.appendChild(wrapper, icon);
 
-    // Trigger date picker
+    // Trigger native date picker on icon click
     this.renderer.listen(icon, 'click', () => {
       if (typeof input.showPicker === 'function') {
         input.showPicker();
@@ -90,7 +84,7 @@ export class DateDirective implements OnInit {
       }
     });
 
-    // Focus styles
+    // Focus and blur border animation
     this.renderer.listen(input, 'focus', () => {
       this.renderer.setStyle(input, 'borderBottom', '2px solid #1976d2');
     });
@@ -99,3 +93,4 @@ export class DateDirective implements OnInit {
     });
   }
 }
+ 

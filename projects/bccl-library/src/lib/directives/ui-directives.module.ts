@@ -18,6 +18,15 @@ import { RequiredDirective } from './validation/required.directive';
 import { LibPlaceholderTitleDirective } from './style/place-holder-title.directive';
 import { DynamicRowDirective } from './style/dynamic-row.directive';
 import { LibLabelTextDirective } from './style/label-text.directive';
+import { SingleSlashInputDirective } from './style/single-slash-input.directive';
+import { NumberDirective } from './type/number.directive';
+import { PrimaryButtonDirective } from './buttons/primary-button.directive';
+import { MenuBarDirective } from './Menu-Bar/menu-bar.directive';
+import { CustomTableDirective } from './table/custom-table.directive';
+import { DualInputFieldDirective } from './style/dual-input-field.directive';
+import { MobileDirective } from './style/mobile.directive';
+import { FloatNumberDirective } from './type/floatNumber.directive';
+
 
 @NgModule({
   imports: [
@@ -37,7 +46,15 @@ import { LibLabelTextDirective } from './style/label-text.directive';
     UiBoxDirective,
     LibPlaceholderTitleDirective,
     DynamicRowDirective,
-    LibLabelTextDirective
+    LibLabelTextDirective,
+    SingleSlashInputDirective,
+    NumberDirective,
+    PrimaryButtonDirective,
+    MenuBarDirective,
+    CustomTableDirective,
+    DualInputFieldDirective,
+    MobileDirective,
+    FloatNumberDirective
   ],
   exports: [
     TextDirective,
@@ -55,7 +72,16 @@ import { LibLabelTextDirective } from './style/label-text.directive';
     UiBoxDirective,
     LibPlaceholderTitleDirective,
     DynamicRowDirective,
-    LibLabelTextDirective
+    LibLabelTextDirective,
+    SingleSlashInputDirective,
+    NumberDirective,
+    PrimaryButtonDirective,
+    MenuBarDirective,
+    CustomTableDirective,
+    DualInputFieldDirective,
+    MobileDirective,
+    FloatNumberDirective
   ]
 })
 export class UiDirectivesModule {}
+ 
