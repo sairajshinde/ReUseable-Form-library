@@ -1,8 +1,9 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { publicApi } from './publicApi/publicApi';
-import { HttpClient } from '@angular/common/http';
 import { Observable, of, switchMap, throwError } from 'rxjs';
-import { HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { map, catchError, finalize } from 'rxjs/operators';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -15,9 +16,12 @@ uploadFilesWithForm = publicApi.uploadFilesWithForm;
 checkstatus = publicApi.checkstatus;
 generateCertificate = publicApi.generateCertificate;
 deleteFileWithForm = publicApi.deleteFile;
-downloadFileWithForm = publicApi.downloadFile
+downloadFileWithForm = publicApi.downloadFile;
+uploadAttachFilesWithForm = publicApi.uploadAttachFilesWithForm;
+login = publicApi.customLogin;
+private http = inject(HttpClient);
 
- constructor(private http: HttpClient) {}
+ constructor() {}
 
 checkDuplicateEntry(body: HttpParams): Observable<any> {
   const headers = new HttpHeaders({ 
@@ -59,6 +63,7 @@ uploadAttachments(selectedFiles: any, applicationId?: string): Observable<any> {
   }
   if (selectedFiles['cheque']) {
     formData.append('attachfile', selectedFiles['cheque']);
+    return this.http.post(this.uploadAttachFilesWithForm, formData);
   }
 
   // ✅ Optional applicationId
@@ -90,4 +95,31 @@ downloadFile(fileName: string): Observable<Blob> {
  getDetailsByTOID() {
     return this.http.post<any[]>(this.checkstatus, '');
   }
+
+ customLogin(userdata: any): Observable<any> {
+  const params = new HttpParams()
+    .set('emailId', userdata.emailId)
+    .set('reference', userdata.reference)
+    .set('checkedin', userdata.checked);
+  const headers = new HttpHeaders({ 'Accept': 'application/json' });
+
+  return this.http.post<any>(this.login, params.toString(), { headers, withCredentials: true, 
+    responseType: 'json' as const, }).pipe(
+    map((res: any) => {
+      if (res[0]?.status === 'success' && res[0]?.data !== '') {
+        return res;
+      } else {
+        return res;
+      }
+    }),
+    catchError(err => {
+      console.error('Login failed', err);
+      throw err;
+    }),
+    finalize(() => {
+      // this.loaderService.hide();
+    })
+  );
+}
+
 }

@@ -21,7 +21,7 @@ export class DynamicRowDirective implements AfterViewInit, OnDestroy {
 
     this.mql800 = window.matchMedia('(max-width: 800px)');
     this.mql600 = window.matchMedia('(max-width: 600px)');
-    this.mql400 = window.matchMedia('(max-width: 400px)');
+    this.mql400 = window.matchMedia('(max-width: 450px)');
   }
 
   ngAfterViewInit(): void {

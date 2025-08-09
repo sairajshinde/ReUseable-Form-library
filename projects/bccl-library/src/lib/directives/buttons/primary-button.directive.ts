@@ -35,7 +35,7 @@ export class PrimaryButtonDirective implements OnInit {
     this.renderer.setStyle(button, 'border-radius', '6px');
     this.renderer.setStyle(button, 'cursor', 'pointer');
     this.renderer.setStyle(button, 'font-weight', '600');           // Semi-bold
-    this.renderer.setStyle(button, 'margin', '25px');
+    this.renderer.setStyle(button, 'margin', '25px 10px');
     this.renderer.setStyle(button, 'flex-shrink', '0');
     this.renderer.setStyle(button, 'letter-spacing', '0.5px');      // Optional: spacing between letters
     this.renderer.setStyle(button, 'min-width', '120px');           // Optional: consistent button width
@@ -53,7 +53,7 @@ export class PrimaryButtonDirective implements OnInit {
       this.renderer.addClass(wrapper, wrapperClass);
       this.renderer.setStyle(wrapper, 'display', 'flex');
       this.renderer.setStyle(wrapper, 'flex-wrap', 'wrap');
-      this.renderer.setStyle(wrapper, 'gap', '50px');
+      this.renderer.setStyle(wrapper, 'gap', '5px');
       this.renderer.setStyle(wrapper, 'width', '100%');
 
       if (position === 'center') {

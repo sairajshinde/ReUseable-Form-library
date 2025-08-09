@@ -26,6 +26,8 @@ import { CustomTableDirective } from './table/custom-table.directive';
 import { DualInputFieldDirective } from './style/dual-input-field.directive';
 import { MobileDirective } from './style/mobile.directive';
 import { FloatNumberDirective } from './type/floatNumber.directive';
+import { SpinnerDirective } from './style/spinner.directive';
+import { ConfirmDialogueDirective } from './style/confirm-dialog.directive';
 
 
 @NgModule({
@@ -54,7 +56,9 @@ import { FloatNumberDirective } from './type/floatNumber.directive';
     CustomTableDirective,
     DualInputFieldDirective,
     MobileDirective,
-    FloatNumberDirective
+    FloatNumberDirective,
+    SpinnerDirective,
+    ConfirmDialogueDirective
   ],
   exports: [
     TextDirective,
@@ -80,7 +84,9 @@ import { FloatNumberDirective } from './type/floatNumber.directive';
     CustomTableDirective,
     DualInputFieldDirective,
     MobileDirective,
-    FloatNumberDirective
+    FloatNumberDirective,
+    SpinnerDirective,
+    ConfirmDialogueDirective
   ]
 })
 export class UiDirectivesModule {}

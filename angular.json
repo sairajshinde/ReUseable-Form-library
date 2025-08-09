@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "TOI_Library": {
+    "TOI_Educaion": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -17,7 +17,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/toi-library",
+            "outputPath": "dist/toi-education",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -67,10 +67,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "TOI_Library:build:production"
+              "buildTarget": "TOI_Educaion:build:production"
             },
             "development": {
-              "buildTarget": "TOI_Library:build:development"
+              "buildTarget": "TOI_Educaion:build:development"
             }
           },
           "defaultConfiguration": "development"

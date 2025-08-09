@@ -53,7 +53,30 @@ export class RequiredDirective implements AfterViewInit, OnDestroy {
       const baseValidator = this.control.control.validator;
       this.control.control.setValidators([
         ...(baseValidator ? [baseValidator] : []),
-        (control) => control.value ? null : { required: true }
+      (control) => {
+        let value = control.value;
+
+        if (!value || (typeof value === 'string' && value.trim() === '')) {
+          return { required: true };
+        }
+
+        // Remove leading/trailing whitespace
+        value = value.trim();
+
+        // Replace multiple spaces with a single space
+        const cleanedValue = value.replace(/\s+/g, ' ');
+
+        if (cleanedValue === '') return { required: true };
+
+        // Optional: update the form control value to the cleaned one
+        // (but only if it changed and control is valid)
+        if (value !== cleanedValue && control.valid) {
+          control.setValue(cleanedValue, { emitEvent: false }); // prevent infinite loop
+        }
+
+        return null;
+      }
+
       ]);
       this.control.control.updateValueAndValidity();
     }
@@ -83,7 +106,7 @@ export class RequiredDirective implements AfterViewInit, OnDestroy {
   private updateErrorMessage() {
     const control = this.control.control;
     const show = control && control.touched && control.invalid && control.errors?.['required'];
-    this.renderer.setProperty(this.errorMsg, 'innerText', show ? 'Required' : '');
+    this.renderer.setProperty(this.errorMsg, 'innerText', show ? 'Please fill this required field' : '');
   }
 }
 

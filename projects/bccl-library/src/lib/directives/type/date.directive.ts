@@ -83,6 +83,13 @@ export class DateDirective implements OnInit {
         input.click();
       }
     });
+     this.renderer.listen(input, 'click', () => {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    });
 
     // Focus and blur border animation
     this.renderer.listen(input, 'focus', () => {

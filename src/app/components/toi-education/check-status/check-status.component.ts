@@ -6,6 +6,8 @@ import { getSharedMenu, setPopupService, MenuItem } from '../../../services/shar
 import { PopupService } from '../../../services/shared/popup.service';
 import { ApiService } from '../../../services/api.service';
 import { HttpHeaders, HttpParams } from '@angular/common/http';
+import { LoaderService } from '../../../services/shared/loader.service';
+import { CommonDialogService } from '../../../services/shared/common-dialog.service';
 declare var bootstrap: any;
 
 @Component({
@@ -58,7 +60,7 @@ fieldList = [
   { key: 'doc4', label: 'National / State Level Achievement Certificate' }
 ];
 
-  constructor(private popupService: PopupService, private api: ApiService, public router: Router) {}
+  constructor(private dialog: CommonDialogService, private popupService: PopupService, private api: ApiService, public router: Router, private loader: LoaderService) {}
 
   ngOnInit(): void {
     setPopupService(this.popupService);
@@ -67,11 +69,14 @@ fieldList = [
   }
 
   fetchStudentData(): void {
+  this.loader.show();
     this.api.getDetailsByTOID().subscribe({
       next: (res) => {
+        console.log('res', res)
         const rawData = res?.[0]?.data || [];
         this.tableData = rawData.map((item: any[]) => {
           const statusLabel = this.mapStatus(item[30]);
+          this.loader.hide();
           return {
             studentId: this.getStudentLink(item[0], item),
             childName: item[1],
@@ -84,10 +89,12 @@ fieldList = [
         });
       },
       error: (err) => {
+        this.loader.hide();
         console.error('Failed to load data:', err);
-        alert('Unable to fetch student data.');
+        this.dialog.alert('Unable to fetch student data.');
       }
     });
+    this.loader.hide();
   }
 
   mapStatus(code: string): string {
@@ -98,66 +105,89 @@ fieldList = [
     return 'Unknown';
   }
 
+
+ getActions(status: string, student: any): any[] {
+  const actions: any[] = [];
+
+  if (status === 'In Process') {
+    actions.push({
+      icon: '✏️',
+      label: 'Edit Application',
+      tooltip: 'Edit this application',
+      callback: () => this.editStudent(student)
+    });
+  }
+
+  if (status === 'Awarded') {
+    // Get application created date from index 29
+    const createdDate = student[27];
+    const created = new Date(createdDate);
+    const today = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+    const isContinue = created <= oneYearAgo; // Check eligibility
+
+    // Always add upload and certificate actions
+    actions.push(
+      {
+  icon: '📤',
+  label: 'Upload Cheque',
+  tooltip: 'Upload Cheque',
+  callback: () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png';
+    input.style.display = 'none';
+
+    input.addEventListener('change', (event: any) => {
+      const file: File = event.target.files[0];
+
+      // 10MB limit = 10 * 1024 * 1024 bytes
+      const maxSize = 10 * 1024 * 1024;
+
+          if (file) {
+            if (file.size > maxSize) {
+              this.dialog.alert('File size must not exceed 10MB. Please upload a smaller file.');
+              return;
+            }
+
+            this.uploadCheque(student, file);
+          }
+        });
+
+        document.body.appendChild(input);
+        input.click();
+
+        input.addEventListener('click', () => {
+          setTimeout(() => document.body.removeChild(input), 1000);
+        });
+      }
+      },
+      {
+        icon: '📄',
+        label: 'Download Certificate',
+        tooltip: 'Download Certificate',
+        callback: () => this.downloadCertificate(student)
+      },{
+         icon: '🔁',
+        label: 'Continue Scholarship',
+        tooltip: 'Continue to Next Year',
+        callback: () => this.continueScholarship(student)
+      }
+    );
+  }
+
+  return actions;
+}
+
+
   getStudentLink(id: string, student: any): { label: string, tooltip?: string, callback: () => void } {
     return {
       label: id,
       tooltip: 'View application',
       callback: () => this.showStudentDetailsModal(student)
     };
-  }
-
-  getActions(status: string, student: any): any[] {
-    const actions: any[] = [];
-    if (status === 'In Process') {
-      actions.push({
-        icon: '✏️',
-        label: 'Edit Application',
-        tooltip: 'Edit this application',
-        callback: () => this.editStudent(student)
-      });
-    }
-    if (status === 'Awarded') {
-      actions.push(
-        {
-          icon: '📤',
-          label: 'Upload Cheque',
-          tooltip: 'Upload Cheque',
-          callback: () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.pdf,.jpg,.jpeg,.png';
-            input.style.display = 'none';
-
-            input.addEventListener('change', (event: any) => {
-              const file: File = event.target.files[0];
-              if (file) {
-                this.uploadCheque(student, file);
-              }
-            });
-
-            document.body.appendChild(input);
-            input.click();
-
-            input.addEventListener('click', () => {
-              setTimeout(() => document.body.removeChild(input), 1000);
-            });
-          }
-        },
-        {
-          icon: '📄',
-          label: 'Download Certificate',
-          tooltip: 'Download Certificate',
-          callback: () => this.downloadCertificate(student)
-        },
-        {
-          icon: '🔁',
-          label: 'Continue Scholarship',
-          tooltip: 'Continue to Next Year',
-          callback: () => this.continueScholarship(student)
-        }
-      );
-    }
-    return actions;
   }
 
   editStudent(student: any) {
@@ -173,10 +203,11 @@ fieldList = [
       this.api.uploadAttachments(selectedFiles).subscribe({
         next: (res) => {
           console.log('Files uploaded:', res);
+          this.dialog.alert('File uploaded successfully', 'CONFIRMATION');
         },
         error: (err) => {
           console.error('File upload failed:', err);
-          alert('File upload failed. Please try again.');
+          this.dialog.alert('File upload failed. Please try again.');
         }
       });
     }
@@ -189,7 +220,7 @@ fieldList = [
     body.set('category', student[37]);
     body.set('exam', student[8]);
 
-    alert(`Downloading Certificate for: ${student[1]}`);
+    this.dialog.alert(`Downloading Certificate for: ${student[1]}`);
 
     this.api.downloadCertificate(body).subscribe({
       next: (blob: Blob) => {
@@ -202,7 +233,7 @@ fieldList = [
       },
       error: (err) => {
         console.error('Download failed', err);
-        alert('Failed to download certificate.');
+        this.dialog.alert('Failed to download certificate.');
       }
     });
   }

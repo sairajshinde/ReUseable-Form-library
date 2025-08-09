@@ -27,3 +27,5 @@ export * from './lib/directives/table/custom-table.directive';
 export * from './lib/directives/style/dual-input-field.directive';
 export * from './lib/directives/style/mobile.directive';
 export * from './lib/directives/type/floatNumber.directive';
+export * from './lib/directives/style/spinner.directive';
+export * from './lib/directives/style/confirm-dialog.directive';
