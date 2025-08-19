@@ -1,8 +1,8 @@
 import { Component, ElementRef, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UiDirectivesModule } from '../../../../../projects/bccl-library/src/lib/directives/ui-directives.module';
-import { RouterOutlet, RouterModule } from '@angular/router';
+import { RouterOutlet, RouterModule, Router } from '@angular/router';
 import { getSharedMenu, setPopupService, MenuItem } from '../../../services/shared/menu.config';
 import { PopupService } from '../../../services/shared/popup.service';
 import { ApiService } from '../../../services/api.service';
@@ -11,6 +11,7 @@ import { Location } from '@angular/common';
 import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { LoaderService } from '../../../services/shared/loader.service';
 import { CommonDialogService } from '../../../services/shared/common-dialog.service';
+import { firstValueFrom } from 'rxjs';
 
 export function maxZeroValidator(control: AbstractControl): ValidationErrors | null {
   const value = parseFloat(control.value);
@@ -42,6 +43,41 @@ export function crossFieldRequiredValidator(
   };
 }
 
+export function totalGreaterOrEqualValidator(obtainedField: string, totalField: string): ValidatorFn {
+  return (group: AbstractControl): ValidationErrors | null => {
+    const obtained = parseFloat(group.get(obtainedField)?.value);
+    const total = parseFloat(group.get(totalField)?.value);
+
+    if (!isNaN(obtained) && !isNaN(total) && total < obtained) {
+      return { totalLessThanObtained: true };
+    }
+    return null;
+  };
+}
+
+export function strictEmailValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = control.value?.trim();
+    if (!value) return null; // empty handled by required validator
+
+    // ❌ Forbid anything not in allowed set
+    // ✅ Allowed → a-z, A-Z, 0-9, @ . _ -
+    const forbiddenChars = /[^a-zA-Z0-9@._-]/;
+    if (forbiddenChars.test(value)) {
+      return { invalidChars: true };
+    }
+
+    // ✅ General email format
+    const emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailPattern.test(value)) {
+      return { invalidEmailFormat: true };
+    }
+
+    return null;
+  };
+}
+
+
 @Component({
   selector: 'app-new-scholarship',
   standalone: true,
@@ -49,9 +85,11 @@ export function crossFieldRequiredValidator(
   templateUrl: './new-scholarship.component.html',
   styleUrl: './new-scholarship.component.scss'
 })
+
 export class NewScholarshipComponent implements OnInit {
   menu: MenuItem[] = [];
   body = new HttpParams();
+  invalidChars = '| ~ !  ? + ` < >  / ; : \ " { } [ ] # $ ^ & * = ';
   studentForm: FormGroup;
   applicationID = '';
   tooYoung = false;
@@ -86,29 +124,47 @@ export class NewScholarshipComponent implements OnInit {
     { label: 'Students with special needs', id: 'Students with special needs' },
     { label: 'National/State Level Achievers', id: 'National/State Level Achievers' }
   ];
+courseOptions: { [key: string]: { label: string; id: string; duration?: string }[] } = {
+  graduate: [
+    // 3 years duration
+    { label: 'B.Com', id: 'B.Com', duration: '3' },
+    { label: 'B.Sc.', id: 'B.Sc.', duration: '3' },
+    { label: 'B.A.', id: 'B.A.', duration: '3' },
+    { label: 'BBA', id: 'BBA', duration: '3' },
+    { label: 'BMS', id: 'BMS', duration: '3' },
+    { label: 'Bachelor in Mass Media', id: 'Bachelor in Mass Media', duration: '3' },
+    { label: 'Bachelor in Home Science', id: 'Bachelor in Home Science', duration: '3' },
 
-  courseOptions: { [key: string]: { label: string; id: string }[] } = {
-    graduate: [
-      { label: 'B.TECH IN COMPUTER SCIENCE', id: 'btechCS' },
-      { label: 'B.TECH IN ELECTRONICS & COMMUNICATION', id: 'btechEC' },
-      { label: 'B.TECH IN MECHANICAL', id: 'btechM' },
-      { label: 'B.TECH IN BIOTECHNOLOGY & ENGINEERING PHYSICS', id: 'btechBEP' },
-      { label: 'BBA', id: 'BBA' },
-      { label: '5 YEARS INTEGRATED BBA-LLB (HONS)', id: 'BBA-LLB' },
-      { label: 'BA JOURNALISM & MASS COMMUNICATION', id: 'bajmc' },
-      { label: 'Others', id: 'Others' }
-    ],
-    postGraduate: [
-      { label: 'MBA', id: 'MBA' },
-      { label: 'Others', id: 'Others' }
-    ],
-    default: [
-      { label: 'Others', id: 'Others' }
-    ]
-  };
+    // 4 years duration
+    { label: 'B.Tech', id: 'B.Tech', duration: '4' },
+    { label: 'B.E.', id: 'B.E.', duration: '4' },
+    // { label: 'B.TECH IN MECHANICAL', id: 'B.TECH IN MECHANICAL', duration: '4' },
+    // { label: 'B.TECH IN BIOTECHNOLOGY & ENGINEERING PHYSICS', id: 'B.TECH IN BIOTECHNOLOGY & ENGINEERING PHYSICS', duration: '4' },
+    { label: 'B.D.S.', id: 'B.D.S.', duration: '4' },
+    { label: 'B. Pharm.', id: 'B. Pharm.', duration: '4' },
+    { label: 'B. Textile', id: 'B. Textile', duration: '4' },
+    { label: 'B. Chem. Eng.', id: 'B. Chem. Eng.', duration: '4' },
 
-  currentCourseOptions: { label: string; id: string }[] = this.courseOptions['default'];
-  showOtherCourseInput: boolean = false;
+    // 5 years duration
+    { label: 'B.Arch.', id: 'B.Arch.', duration: '5' },
+    { label: 'B.A. LLB', id: 'B.A. LLB', duration: '5' },
+    { label: 'M.B.B.S.', id: 'M.B.B.S.', duration: '5' },
+    { label: 'B.A.M.S.', id: 'B.A.M.S.', duration: '5' },
+    { label: 'B.H.M.S.', id: 'B.H.M.S.', duration: '5' },
+  ],
+
+  postGraduate: [
+    { label: 'MBA', id: 'MBA', duration: '2' },
+  ],
+
+  default: [
+    { label: 'Others', id: 'Others', duration: '' }
+  ]
+};
+
+
+currentCourseOptions: { label: string; id: string; duration?: string }[] = this.courseOptions['default'];
+showOtherCourseInput: boolean = false;
 
   durationYears = [
     { label: '1 Year', id: '1' },
@@ -126,39 +182,41 @@ export class NewScholarshipComponent implements OnInit {
     { label: '5th Year', id: '5' }
   ];
 
-  constructor(private fb: FormBuilder, private loader: LoaderService, private popupService: PopupService, private api: ApiService, private location: Location, private dialog: CommonDialogService) {
+  constructor(private fb: FormBuilder, private loader: LoaderService, private popupService: PopupService, private api: ApiService, private location: Location, private dialog: CommonDialogService, private router: Router) {
     this.studentForm = this.fb.group({
       childName: ['', [Validators.maxLength(100)]],
       childDob: [''],
       childGender: [''],
+      childEmailId: ['', [Validators.email, strictEmailValidator(), Validators.pattern(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/), Validators.maxLength(99)]],
       childMarritalStatus: [''],
-      childEmailId: ['', [Validators.email, Validators.pattern(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/), Validators.maxLength(100)]],
-      childContactNo: ['', Validators.pattern(/^[6-9]\d{9}$/)],
-      parentName: [{ value: '', disabled: true }],
       childMobile: ['', Validators.pattern(/^[6-9]\d{9}$/)],
-      examPassed: ['', [Validators.maxLength(100)]],
+      parentName: [{ value: '', disabled: true }],
+      childContactNo: ['', Validators.pattern(/^[6-9]\d{9}$/)],
+      examPassed: ['', [Validators.maxLength(49)]],
       firstAttempt: [''],
       passedYear: [''],
-      aggregate: [{ value: '', disabled: true }],
-      marksType: [''],
+      nameOfCollege: ['', [Validators.maxLength(100)]],
+      schemeApplied: [''],
+      courseApplied: [''],
+      otherCourse: ['', [Validators.maxLength(95)]],
+      durationOfCourse: [''],
+      schemeYears: [''],
       marksObtained: [''],
       marksTotal: ['', [maxZeroValidator]],
       cgpaA: [''],
       cgpaB: ['', [maxZeroValidator]],
-      schemeApplied: [''],
-      courseApplied: [''],
-      otherCourse: ['', [Validators.maxLength(100)]],
-      durationOfCourse: [''],
-      schemeYears: [''],
-      nameOfCollege: ['', [Validators.maxLength(100)]],
-      attachment1: [null],
-      attachment2: [null],
+      aggregate: [{ value: '', disabled: true }],
+      marksType: [''],
+      attachment1: [null, Validators.required],
+      attachment2: [null, Validators.required],
       attachment3: [null],
       attachment4: [null]
     }, {
       validators: [
         crossFieldRequiredValidator('marksObtained', 'marksTotal'),
-        crossFieldRequiredValidator('cgpaA', 'cgpaB')
+        crossFieldRequiredValidator('cgpaA', 'cgpaB'),
+        totalGreaterOrEqualValidator('marksObtained', 'marksTotal'),
+        totalGreaterOrEqualValidator('cgpaA', 'cgpaB')
       ]
     });
   }
@@ -173,11 +231,23 @@ export class NewScholarshipComponent implements OnInit {
     const state = history.state;
     const data = history.state?.studentData;
     this.flag = history.state?.flag;
+    
     if (data && Array.isArray(data)) {
       console.log(data)
       this.populateFormFromStudentData(data, this.flag);
-    }
+    } else {this.newscholarship();}
     this.handleDOB();
+  }
+
+  newscholarship(){
+    this.studentForm.get('schemeYears')?.disable();
+    const cyear= this.getOptionIdFromLabel(this.years, '1');
+    setTimeout(() => {
+      this.studentForm.patchValue({
+      schemeYears: cyear
+    });
+    
+    });
   }
 
   setparent() {
@@ -267,31 +337,48 @@ export class NewScholarshipComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.studentForm.invalid) {
-      this.studentForm.markAllAsTouched();
+  if (this.studentForm.invalid) {
+  this.studentForm.markAllAsTouched();
 
-      const firstInvalidControl = Object.keys(this.studentForm.controls).find((key) => {
-        const control = this.studentForm.get(key);
-        return control && control.invalid && control.enabled;
-      });
+  ['childName', 'childDob', 'childGender', 'childEmailId', 'childMarritalStatus', 'childMobile',  'childContactNo', 'examPassed', 'firstAttempt', 'passedYear', 'nameOfCollege', 'schemeApplied', 'courseApplied', 'durationOfCourse', 'schemeYears', 'attachment1', 'attachment2'].forEach((key) => {
+    const control = this.studentForm.get(key);
 
-      if (firstInvalidControl) {
-        const element = document.querySelector(`[formControlName="${firstInvalidControl}"]`) as HTMLElement;
-        if (element) setTimeout(() => element.focus(), 0);
-      }
-
-      ['attachment1', 'attachment2'].forEach((key) => {
-        const control = this.studentForm.get(key);
-        if (control && !control.value ) {
-        control.setErrors({ uploadFailed: true });
-      }
-
-    });
-    
-    this.dialog.alert('Please fill all required fields correctly.', 'ALERT');
-      return;
+    if (
+      control &&
+      control.enabled &&
+      !control.value &&
+      control.errors?.['uploadFailed'] !== true
+    ) {
+      control.setErrors({ ...(control.errors || {}), uploadFailed: true });
+      control.markAsTouched();
     }
-    
+  });
+
+  // Find the first invalid control
+  const firstInvalidControl = Object.keys(this.studentForm.controls).find((key) => {
+    const control = this.studentForm.get(key);
+    return control && control.invalid && control.enabled;
+  });
+
+  // Show alert first
+ this.dialog.alert('Please fill all required fields correctly.', 'ALERT')
+    .then(() => {
+      if (firstInvalidControl) {
+        const element = document.querySelector(
+          `[formControlName="${firstInvalidControl}"]`
+        ) as HTMLElement;
+
+        if (element) {
+          element.focus();
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    });
+
+  return;
+}
+
+
     const raw = this.studentForm.getRawValue();
 
     // ✅ Determine CGPA or Marks block used
@@ -396,200 +483,142 @@ export class NewScholarshipComponent implements OnInit {
       payload.schemeYears
     ];
     this.loader.show();
+    console.log(finalArray , 'final..............');
+    Promise.resolve().then(() => {
     this.api.submitScholarshipForm(finalArray).subscribe({
       next: (res) => {
+        console.log('Response.....' , res);
         if (res?.status === 'success') {
           this.applicationID = res?.data?.applicationId;
           this.loader.hide();
           this.dialog.alert('Form submitted successfully with applicationID: ' + res?.data?.applicationId, 'CONFIRMATION');
           this.onReset();
-        } else if (res?.status === 'error') {
-          this.loader.hide();
-          this.dialog.alert('Duplicate entry found for the same user.');
+          this.router.navigate(['/check-status']);
+        } else if (res?.status === 'error') {  
+          this.loader.hide(); 
+          if(res?.message) {
+            this.dialog.alert(res.message);  
+          } else{
+            this.dialog.alert('Duplicate entry found for the same user.');
+          }       
         }
       },
       error: (err) => {
         console.error('Submission failed:', err);
-        this.loader.hide();
-        this.dialog.alert('Something went wrong while submitting. Please try again.');
+          this.loader.hide();
+          this.dialog.alert('Something went wrong while submitting. Please try again.');
       }
     });
-    
-  }
-
-  onFileChange(event: { file: File | null }, controlName: string) {
-    const { file } = event;
-    const control = this.studentForm.get(controlName);
-
-    if (!control) return;
-
-    if (!file) {
-      control.setValue(null); // Clear the control value
-      control.setErrors({ uploadFailed: true }); // Optional custom error
-      delete this.selectedFiles[controlName];
-      return;
-    }
-    // ✅ Store the actual File object for validation to work
-    this.selectedFiles[controlName] = file;
-    this.removeFiles[controlName] = file.name;
-
-    // Upload the file
-  
-    this.api.uploadAttachments(this.selectedFiles, this.applicationID).subscribe({
-      next: (res) => {
-        console.log('Files uploaded:', res);
-        this.dialog.alert('File uploaded successfully.', 'CONFIRMATION');
-        control.setValue(file.name); // Store name for reference
-        control.setErrors(null);
-        control.markAsTouched();
-        control.updateValueAndValidity();
-      },
-      error: (err) => {
-        console.error('File upload failed:', err);
-        control.setValue(null);
-        delete this.selectedFiles[controlName];
-        this.dialog.alert('File upload failed. Please try again.');
-      }
-    });
-
-    // Clear selectedFiles after each upload (optional — depends on your use case)
-    this.selectedFiles = {};
-  }
-
-  onRemove(controlName: any) {
-
-    const fileName = this.removeFiles[controlName];
-    console.log(fileName);
-    if (!fileName) {
-      console.warn('No file name found for control:', controlName);
-      return;
-    }
-
-    const encodedFileName = btoa(fileName);
-
-    const body = new URLSearchParams();
-    body.set('fileName', encodedFileName);
-    body.set('type', '');
-    body.set('applicationID', this.applicationID);
-    body.set('flag', controlName.toUpperCase());
-
-    this.api.deleteFile(body).subscribe({
-      next: () => {
-
-        console.log(`✅ File '${fileName}' deleted from server`);
-        this.studentForm.get(controlName)?.setValue(null);
-        this.studentForm.get(controlName)?.setErrors({ uploadFailed: true });
-        delete this.removeFiles[controlName];
-      },
-      error: (err) => {
-        console.error('❌ Error deleting file:', err);
-        this.dialog.alert('Failed to remove file from server.');
-      }
     });
   }
-
-  onSchemeChange(event: any): void {
-    const scheme = event?.target?.value || event;
-
-    const attachment3 = this.studentForm.get('attachment3');
-    const attachment4 = this.studentForm.get('attachment4');
-
-    this.achiver = false;
-    this.special = false;
-
-    if (scheme === 'Graduate') {
-      this.currentCourseOptions = this.courseOptions['graduate'];
-    } else if (scheme === 'Post Graduate') {
-      this.currentCourseOptions = this.courseOptions['postGraduate'];
-    } else {
-      this.currentCourseOptions = this.courseOptions['default'];
-
-      if (scheme === 'National/State Level Achievers') {
-        this.achiver = true;
-      } else if (scheme === 'Students with special needs') {
-        this.special = true;
-      }
-    }
-
-    if (this.special) {
-      attachment3?.setValidators([Validators.required]);
-    } else {
-      attachment3?.clearValidators();
-      attachment3?.setValue(null);
-    }
-    attachment3?.updateValueAndValidity();
-
-    if (this.achiver) {
-      attachment4?.setValidators([Validators.required]);
-    } else {
-      attachment4?.clearValidators();
-      attachment4?.setValue(null);
-    }
-    attachment4?.updateValueAndValidity();
-
-    this.studentForm.patchValue({
-      courseApplied: '',
-      otherCourse: ''
-    });
-
-    this.showOtherCourseInput = false;
-  }
-
-  onCourseChange(event: any): void {
-    const selectedCourse = event?.target?.value || event;
-    const otherCourseControl = this.studentForm.get("otherCourse");
-
-    this.showOtherCourseInput = selectedCourse === 'Others';
-
-    if (this.showOtherCourseInput) {
-      otherCourseControl?.setValidators([Validators.required]);
-    } else {
-      otherCourseControl?.clearValidators();
-      otherCourseControl?.setValue(''); // Optional: clear the input if not 'others'
-    }
-
-    otherCourseControl?.updateValueAndValidity();
-  }
-
-  async downloadAndConvertFile(fileName: string): Promise<File | null> {
-    try {
-      const blob = await this.api.downloadFile(fileName).toPromise();
-      if (!blob) return null;
-      return new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
-    } catch (err) {
-      console.error(`Failed to download ${fileName}`, err);
-      return null;
-    }
-  }
-
+ 
   populateFormFromStudentData(data: any[], flag: any): void {
     if (!Array.isArray(data)) return;
     console.log('flag :', flag);
 
-    if (flag === 'contiune') {
-      const genderValue = this.getOptionIdFromLabel(this.genderOptions, data[3]);
-      const maritalStatusValue = this.getOptionIdFromLabel(this.maritalStatuses, data[4]);
+    if (flag === 'contiune'){
+    const genderValue = this.getOptionIdFromLabel(this.genderOptions, data[3]);
+    const maritalStatusValue = this.getOptionIdFromLabel(this.maritalStatuses, data[4]);
 
-      setTimeout(() => {
-        this.studentForm.patchValue({
-          childName: data[1] || '',
-          childDob: this.formatDateToDDMMYYYY(data[2]),
-          childGender: genderValue,
-          childMarritalStatus: maritalStatusValue,
-          childEmailId: data[5] || '',
-          childMobile: data[6],
-          childContactNo: data[7]
-        });
+    // 🔹 Scheme, Course & Duration mapping (copied from edit logic)
+    const schemeAppliedValue = this.getOptionIdFromLabel(this.schemes, data[11]);
+    const durationOfCourseValue = this.getOptionIdFromLabel(this.durationYears, data[19]);
+    
+    const lastNumber = parseInt(data[20]?.slice(-1), 10) || 1;
+    const incremented = String(lastNumber + 1);
 
-        this.applicationID = data[0] || '';
-        this.status = data[30];
-        // this.studentForm.get('parentName')?.setValue(data[37] || '');
-        this.studentForm.get('childName')?.disable();
-        this.studentForm.get('childDob')?.disable();
-        this.studentForm.get('childGender')?.disable();
+    const schemeYearsValue = this.getOptionIdFromLabel(this.years, incremented);
+    console.log('id:', schemeYearsValue);
+    const rawCourseId = data[20]?.split(' - ')[0]?.trim();
+    let matchedCourseId = '';
+    let isOtherCourse = false;
+
+    const allCourses = Object.values(this.courseOptions).flat();
+    const matched = allCourses.find(opt => opt.id === rawCourseId);
+
+    if (matched) {
+      matchedCourseId = matched.id;
+      isOtherCourse = matched.id === 'Others';
+    } else {
+      matchedCourseId = 'Others';
+      isOtherCourse = true;
+    }
+    this.showOtherCourseInput = isOtherCourse;
+
+    const schemeLower = data[11]?.toLowerCase();
+    if (schemeLower === 'graduate') {
+      this.durationYears = [
+    { label: '3 Years', id: '3' },
+    { label: '4 Years', id: '4' },
+    { label: '5 Years', id: '5' }
+  ];
+  
+    } else {
+      this.durationYears = [
+    { label: '1 Year', id: '1' },
+    { label: '2 Years', id: '2' },
+    { label: '3 Years', id: '3' },
+    { label: '4 Years', id: '4' },
+    { label: '5 Years', id: '5' }
+  ];
+    }
+    if (schemeLower === 'graduate') {
+      this.currentCourseOptions = this.courseOptions['graduate'];
+       this.currentCourseOptions = [
+      ...this.courseOptions['graduate'], ...this.courseOptions['default']];
+       this.studentForm.get('schemeYears')?.enable();
+    } else if (schemeLower === 'under graduate') {
+      this.currentCourseOptions = [...this.courseOptions['default']];
+      this.studentForm.get('schemeYears')?.disable();
+    } else if (schemeLower === 'post graduate') {
+      this.currentCourseOptions = [
+      ...this.courseOptions['postGraduate'], ...this.courseOptions['default']];
+      this.studentForm.get('schemeYears')?.disable();
+    }else if(schemeLower === 'students with special needs' || schemeLower ===  'national/state level achievers'){
+         this.currentCourseOptions = [
+      ...this.courseOptions['graduate'],
+    ...this.courseOptions['postGraduate'], ...this.courseOptions['default']
+    ];
+      this.studentForm.get('schemeYears')?.enable();
+    } else {
+      this.currentCourseOptions = this.courseOptions['default'];
+      this.studentForm.get('schemeYears')?.enable();
+    }
+
+    setTimeout(() => {
+      this.studentForm.patchValue({
+        childName: data[1] || '',
+        childDob: this.formatDateToDDMMYYYY(data[2]),
+        childGender: genderValue,
+        childMarritalStatus: maritalStatusValue,
+        childEmailId: data[5] || '',
+        childMobile: data[6],
+        childContactNo: data[7],
+        nameOfCollege: data[18] || '',
+        schemeApplied: schemeAppliedValue,
+        courseApplied: matchedCourseId,
+        otherCourse: isOtherCourse ? rawCourseId : '',
+        durationOfCourse: durationOfCourseValue,
+        schemeYears : schemeYearsValue
       });
 
-    } else if (flag === 'edit') {
+      this.applicationID = data[0] || '';
+      this.status = data[30];
+
+      // disable unchanged personal fields
+      this.studentForm.get('childName')?.disable();
+      this.studentForm.get('childDob')?.disable();
+      this.studentForm.get('childGender')?.disable();
+      this.studentForm.get('schemeApplied')?.disable();
+      this.studentForm.get('courseApplied')?.disable();
+      if (isOtherCourse) {
+        this.studentForm.get('otherCourse')?.disable();
+      }
+      this.studentForm.get('durationOfCourse')?.disable();
+      
+    });
+    }
+    else if (flag === 'edit') {
       const genderValue = this.getOptionIdFromLabel(this.genderOptions, data[3]);
       const maritalStatusValue = this.getOptionIdFromLabel(this.maritalStatuses, data[4]);
       const firstAttemptValue = this.getOptionIdFromLabel(this.attempts, data[10]);
@@ -615,13 +644,46 @@ export class NewScholarshipComponent implements OnInit {
       this.showOtherCourseInput = isOtherCourse;
 
       const schemeLower = data[11]?.toLowerCase();
+      
       if (schemeLower === 'graduate') {
-        this.currentCourseOptions = this.courseOptions['graduate'];
-      } else if (schemeLower === 'post graduate') {
-        this.currentCourseOptions = this.courseOptions['postGraduate'];
+        this.durationYears = [
+      { label: '3 Years', id: '3' },
+      { label: '4 Years', id: '4' },
+      { label: '5 Years', id: '5' }
+      ]; 
+      this.studentForm.get('schemeYears')?.enable();
       } else {
-        this.currentCourseOptions = this.courseOptions['default'];
-      }
+        this.durationYears = [
+      { label: '1 Year', id: '1' },
+      { label: '2 Years', id: '2' },
+      { label: '3 Years', id: '3' },
+      { label: '4 Years', id: '4' },
+      { label: '5 Years', id: '5' }
+    ];
+    this.studentForm.get('schemeYears')?.enable();
+    }
+    if (schemeLower === 'graduate') {
+      this.currentCourseOptions = this.courseOptions['graduate'];
+       this.currentCourseOptions = [
+      ...this.courseOptions['graduate'], ...this.courseOptions['default']];
+      
+    }  else if (schemeLower === 'under graduate') {
+      this.currentCourseOptions = [...this.courseOptions['default']];
+      this.studentForm.get('schemeYears')?.disable();
+    }else if (schemeLower === 'post graduate') {
+      this.currentCourseOptions = [
+      ...this.courseOptions['postGraduate'], ...this.courseOptions['default']];
+      this.studentForm.get('schemeYears')?.disable();
+    }else if(schemeLower === 'students with special needs' || schemeLower ===  'national/state level achievers'){
+         this.currentCourseOptions = [
+      ...this.courseOptions['graduate'],
+    ...this.courseOptions['postGraduate'], ...this.courseOptions['default']
+    ];
+      this.studentForm.get('schemeYears')?.enable();
+    } else {
+      this.currentCourseOptions = this.courseOptions['default'];
+      this.studentForm.get('schemeYears')?.enable();
+    }
 
       const scheme = data[11];
       this.special = scheme === 'Students with special needs';
@@ -649,6 +711,9 @@ export class NewScholarshipComponent implements OnInit {
           schemeYears: schemeYearsValue
         });
 
+        if(isOtherCourse){
+          this.studentForm.get('otherCourse')?.setValidators([Validators.required]);
+        }
         // this.studentForm.get('parentName')?.setValue(data[37] || '');
         this.studentForm.get('childName')?.enable();
         this.studentForm.get('childDob')?.enable();
@@ -690,13 +755,12 @@ export class NewScholarshipComponent implements OnInit {
 
       this.applicationID = data[0];
       this.status = data[30];
-
-      // 🔹 Populate uploaded attachments
-      const filePromises: Promise<void>[] = [];
-      // 🔹 Prefill uploaded attachments WITHOUT uploading again
+       const filePromises: Promise<void>[] = [];
+    
       const attachmentPrefills: {
         key: 'attachment1' | 'attachment2' | 'attachment3' | 'attachment4';
         fileName: string | null;
+        
         condition?: boolean;
       }[] = [
           { key: 'attachment1', fileName: data[23] },
@@ -706,19 +770,237 @@ export class NewScholarshipComponent implements OnInit {
         ];
 
       attachmentPrefills.forEach(({ key, fileName, condition }) => {
+        
         if (fileName && (condition === undefined || condition)) {
           this.studentForm.get(key)?.setValue(fileName);
           this.studentForm.get(key)?.setErrors(null);
           this.removeFiles[key] = fileName;
+          console.log(this.studentForm.get(key)?.getRawValue());
         }
+        
       });
 
 
       Promise.all(filePromises).then(() => {
         console.log('✅ All attachments populated.');
       });
+      // this.prefillAttachments(data);
     }
   }
+
+
+
+//   prefillAttachments = async (data: any[]): Promise<void> => {
+//   const attachmentPrefills: {
+//     key: 'attachment1' | 'attachment2' | 'attachment3' | 'attachment4';
+//     fileName: string | null;
+//     condition?: boolean;
+//   }[] = [
+//     { key: 'attachment1', fileName: data[23] },
+//     { key: 'attachment2', fileName: data[24] },
+//     { key: 'attachment3', fileName: data[25], condition: this.special },
+//     { key: 'attachment4', fileName: data[38], condition: this.achiver },
+//   ];
+//     this.studentForm.get(key)?.setValue(fileName);
+//   const filePromises = attachmentPrefills.map(async ({ key, fileName, condition }) => {
+//     if (fileName && (condition === undefined || condition)) {
+      
+//       const blob = await firstValueFrom(this.api.downloadFile(fileName));
+//       console.log(blob);
+//       if (blob) {
+//         // Create a File object from the Blob
+//         const file = new File([blob], fileName, {
+//           type: blob.type || 'application/octet-stream'
+//         });
+
+//         // Set into form control
+//         this.studentForm.get(key)?.setValue(fileName);
+//         this.studentForm.get(key)?.setErrors(null);
+
+//         // Track for removal
+//         this.removeFiles[key] = fileName;
+//       }
+//     }
+//   });
+
+//   await Promise.all(filePromises);
+
+//   console.log('✅ All attachments populated and ready as File objects.');
+// }
+
+  graduate3YearCourses = ['B.Com', 'B.Sc.', 'B.A.', 'BBA', 'BMS', 'Bachelor in Mass Media', 'Bachelor in Home Science'];
+  graduate4YearCourses = ['B.D.S.', 'B. Pharm.', 'B.E.', 'B. Tech.', 'Batchlor of Textile.', 'B. Chem. Eng.'];
+  graduate5YearCourses = ['B.Arch.', 'B.A. LLB', 'M.B.B.S.', 'B.A.M.S.', 'B.H.M.S.'];
+  availableDurations: { label: string; id: string }[] = [];
+  availableYears: { label: string; id: string }[] = [];
+
+
+  onSchemeChange(event: any): void {
+    const scheme = event?.target?.value || event;
+
+    const attachment3 = this.studentForm.get('attachment3');
+    const attachment4 = this.studentForm.get('attachment4');
+
+    this.achiver = false;
+    this.special = false;
+    if (scheme === 'Graduate') {
+    this.durationYears = [
+      { label: '3 Years', id: '3' },
+      { label: '4 Years', id: '4' },
+      { label: '5 Years', id: '5' }
+    ];
+    }else {
+    this.durationYears = [
+          { label: '1 Year', id: '1' },
+          { label: '2 Years', id: '2' },
+          { label: '3 Years', id: '3' },
+          { label: '4 Years', id: '4' },
+          { label: '5 Years', id: '5' }
+        ];
+        this.studentForm.get('schemeYears')?.enable();
+    }
+    if (scheme === 'Graduate') {
+      this.currentCourseOptions = [
+      ...this.courseOptions['graduate'], ...this.courseOptions['default']];
+      this.studentForm.get('durationOfCourse')?.enable();   
+        if(!this.flag){this.newscholarship()}
+    } else if (scheme === 'Post Graduate') {
+      this.currentCourseOptions = [
+      ...this.courseOptions['postGraduate'], ...this.courseOptions['default']];
+          const cyear = this.getOptionIdFromLabel(this.durationYears, '2');
+          setTimeout(() => {
+              this.studentForm.patchValue({
+          durationOfCourse: cyear
+        });
+          })
+        if(!this.flag){this.newscholarship()}
+        this.studentForm.get('durationOfCourse')?.disable();
+    } else if (scheme === 'Under Graduate') {
+      this.currentCourseOptions = this.courseOptions['default'];
+          const cyear= this.getOptionIdFromLabel(this.durationYears, '2');
+           setTimeout(() => {
+              this.studentForm.patchValue({
+          durationOfCourse: cyear
+        });
+          })
+        
+        this.studentForm.get('durationOfCourse')?.disable();
+        if(!this.flag){this.newscholarship()}
+        
+    }else if (scheme === 'National/State Level Achievers' || scheme === 'Students with special needs') {
+    this.currentCourseOptions = [
+      ...this.courseOptions['graduate'],
+    ...this.courseOptions['postGraduate'], ...this.courseOptions['default']
+    ];
+    this.achiver = scheme === 'National/State Level Achievers';
+    this.special = scheme === 'Students with special needs';
+    this.studentForm.get('durationOfCourse')?.enable();
+    this.studentForm.get('schemeYears')?.enable();
+  } 
+  else {
+    this.currentCourseOptions = this.courseOptions['default'];
+    this.studentForm.get('durationOfCourse')?.enable();
+  }
+
+    if (this.special) {
+      attachment3?.setValidators([Validators.required]);
+    } else {
+      attachment3?.clearValidators();
+      attachment3?.setValue(null);
+    }
+    attachment3?.updateValueAndValidity();
+
+    if (this.achiver) {
+      attachment4?.setValidators([Validators.required]);
+    } else {
+      attachment4?.clearValidators();
+      attachment4?.setValue(null);
+    }
+    attachment4?.updateValueAndValidity();
+
+    this.studentForm.patchValue({
+      courseApplied: '',
+      otherCourse: ''
+    });
+
+    this.showOtherCourseInput = false;
+  }
+
+  onCourseChange(event: any): void {
+  const selectedCourseId = event?.target?.value || event;
+  const selectedCourse = this.getOptionIdFromLabel(this.currentCourseOptions ,selectedCourseId )
+  const durationControl = this.studentForm.get('durationOfCourse');
+  const otherCourseControl = this.studentForm.get('otherCourse');
+  this.showOtherCourseInput = selectedCourseId === 'Others';
+
+  // Graduate scheme → auto-set duration based on course name
+  if (this.studentForm.get('schemeApplied')?.value === 'Graduate') {
+    const courseName = selectedCourse;
+    this.durationYears = [
+    { label: '3 Years', id: '3' },
+    { label: '4 Years', id: '4' },
+    { label: '5 Years', id: '5' }
+  ];
+
+    if (this.graduate3YearCourses.includes(courseName)) {
+
+      const cyear= this.getOptionIdFromLabel(this.durationYears, '3');
+         setTimeout(() => {
+              this.studentForm.patchValue({
+          durationOfCourse: cyear
+        });
+          })
+    } 
+    else if (this.graduate4YearCourses.includes(courseName)) {
+
+       const cyear= this.getOptionIdFromLabel(this.durationYears, '4');
+        setTimeout(() => {
+              this.studentForm.patchValue({
+          durationOfCourse: cyear
+        });
+          })
+        
+      
+    } 
+    else if (this.graduate5YearCourses.includes(courseName)) {
+      
+       const cyear= this.getOptionIdFromLabel(this.durationYears, '5');
+        setTimeout(() => {
+              this.studentForm.patchValue({
+          durationOfCourse: cyear
+        });
+          })
+        
+      
+    } 
+    
+  } else if (this.studentForm.get('schemeApplied')?.value === 'Under Graduate' || this.studentForm.get('schemeApplied')?.value === 'Post Graduate' && selectedCourse === "Other")  {
+    this.durationYears = [
+    { label: '1 Year', id: '1' },
+    { label: '2 Years', id: '2' },
+    { label: '3 Years', id: '3' },
+    { label: '4 Years', id: '4' },
+    { label: '5 Years', id: '5' }
+  ];
+   const cyear = this.getOptionIdFromLabel(this.durationYears, '2');
+          setTimeout(() => {
+              this.studentForm.patchValue({
+          durationOfCourse: cyear
+        });
+          })
+
+  
+  }
+
+  if (this.showOtherCourseInput) {
+    otherCourseControl?.setValidators([Validators.required]);
+  } else {
+    otherCourseControl?.clearValidators();
+    otherCourseControl?.setValue('');
+  }
+
+  otherCourseControl?.updateValueAndValidity();
+}
 
   getOptionIdFromLabel(
     options: { label: string; id: string }[],
@@ -738,6 +1020,160 @@ export class NewScholarshipComponent implements OnInit {
       );
     }
     return found?.id || '';
+  }
+
+// onFileChange(event: { file: File | null }, controlName: string) {
+//   const { file } = event;
+//   const control = this.studentForm.get(controlName);
+//   control?.setErrors(null);
+//   if (!control) return;
+
+//   if (!file) {
+//     control.setValue(null);
+//     control.setErrors({ uploadFailed: true });
+//     delete this.selectedFiles[controlName];
+//     return;
+//   }
+
+//   this.selectedFiles[controlName] = file;
+//   this.removeFiles[controlName] = file.name;
+
+//   this.loader.show();
+
+//   Promise.resolve().then(() => {
+//     this.api.uploadAttachments(this.selectedFiles, this.applicationID).subscribe({
+//       next: (res) => {
+//         if (res.success === true) {
+//           this.loader.hide();
+//           this.dialog.alert(res.message, 'CONFIRMATION');
+//           control.setValue(file.name);
+//           control.setErrors(null);
+//           control.markAsTouched();
+//           control.updateValueAndValidity();
+//         } else {
+//           this.loader.hide();
+//           this.dialog.alert(res.message);
+//           control.setValue(null);
+//           delete this.selectedFiles[controlName];
+//         }
+//       },
+//       error: (err) => {
+//         console.error('File upload failed:', err.message);
+//         this.loader.hide();
+//         this.dialog.alert('File upload failed. Please try again.');
+
+//         control.setValue(null);
+//         delete this.selectedFiles[controlName];
+//       }
+//     });
+//   });
+
+//   this.selectedFiles = {};
+// }
+onFileChange(event: { file: File | null }, controlName: string) {
+  const { file } = event;
+  this.selectedFiles = {};
+  const control = this.studentForm.get(controlName);
+  control?.setErrors(null);
+  if (!control) return;
+  if (!file) {
+    control.setValue(null);
+    control.setErrors({ required: true, uploadFailed: true });
+    delete this.selectedFiles[controlName];
+    return;
+  }
+
+    if (
+      control &&
+      control.enabled &&
+      !control.value &&
+      control.errors?.['uploadFailed'] !== true
+    ) {
+      control.setErrors({ ...(control.errors || {}), uploadFailed: true });
+      control.markAsTouched();
+    }
+
+  // ✅ Keep only the most recent file
+  this.selectedFiles = { [controlName]: file };
+  console.log(this.selectedFiles);
+  this.removeFiles[controlName] = file.name;
+  this.loader.show();
+
+  Promise.resolve().then(() => {
+    this.api.uploadAttachments(this.selectedFiles, this.applicationID).subscribe({
+      
+      next: (res) => {
+        this.loader.hide();
+        if (res.success === true) {
+          this.dialog.alert(res.message, 'CONFIRMATION');
+          control.setValue(file.name);
+          control.setErrors(null);
+          control.markAsTouched();
+          control.updateValueAndValidity();
+        } else {
+          this.dialog.alert(res.message);
+          control.setErrors({ required: true, uploadFailed: true });
+          control.setValue(null);
+          delete this.selectedFiles[controlName];
+        }
+      },
+      error: (err) => {
+        console.log(this.selectedFiles);
+        console.error('File upload failed:', err.message);
+        this.loader.hide();
+        this.dialog.alert('File upload failed. Please try again.');
+        control.setErrors({ required: true, uploadFailed: true });
+        control.setValue(null);
+        delete this.selectedFiles[controlName];
+      }
+    });
+  });
+
+}
+
+
+  onRemove(controlName: any) {
+
+    const fileName = this.removeFiles[controlName];
+    console.log(fileName);
+    if (!fileName) {
+      console.warn('No file name found for control:', controlName);
+      return;
+    }
+
+    const encodedFileName = btoa(fileName);
+
+    const body = new URLSearchParams();
+    body.set('fileName', encodedFileName);
+    body.set('type', '');
+    body.set('applicationID', this.applicationID);
+    body.set('flag', controlName.toUpperCase());
+    Promise.resolve().then(() => {
+    this.api.deleteFile(body).subscribe({
+      next: (res) => {
+        console.log(`✅ File '${fileName}' deleted from server`);
+        this.studentForm.get(controlName)?.setValue(null);
+        this.studentForm.get(controlName)?.setErrors({ required: true, uploadFailed: true });
+        delete this.removeFiles[controlName];
+        this.dialog.alert(res.message);
+      },
+      error: (err) => {
+        console.error('❌ Error deleting file:', err);
+        this.dialog.alert('Failed to remove file from server.');
+      }
+    });
+    });
+  }
+
+  async downloadAndConvertFile(fileName: string): Promise<File | null> {
+    try {
+      const blob = await this.api.downloadFile(fileName).toPromise();
+      if (!blob) return null;
+      return new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+    } catch (err) {
+      console.error(`Failed to download ${fileName}`, err);
+      return null;
+    }
   }
 
   formatDateToDDMMYYYY(dateStr: string): string {
@@ -807,6 +1243,7 @@ export class NewScholarshipComponent implements OnInit {
   onReset(): void {
 
     if (this.flag === 'contiune') {
+      this.status = 'C';
       const resultControl = this.studentForm.get('passedYear');
       if (resultControl?.hasError('outOfRange')) {
         resultControl.setErrors(null);
@@ -829,11 +1266,12 @@ export class NewScholarshipComponent implements OnInit {
       this.isResultDateOutOfRange = false;
       this.applicationID = '';
       this.setparent();
+      this.studentForm.get('schemeYears')?.enable();
       this.handleCgpaAndMarksLogic();
       return
     }
     this.studentForm.reset();
-
+    this.newscholarship();
     // Clear custom validation error manually for resultDate
     const resultControl = this.studentForm.get('passedYear');
     if (resultControl?.hasError('outOfRange')) {
@@ -848,7 +1286,12 @@ export class NewScholarshipComponent implements OnInit {
     this.isResultDateOutOfRange = false;
     this.applicationID = '';
     this.setparent();
+    this.flag = '';
+    this.status = '';
+    this.newscholarship();
     this.handleCgpaAndMarksLogic();
+    this.special = false;
+    this.achiver = false;
   }
 
   onBack(): void {

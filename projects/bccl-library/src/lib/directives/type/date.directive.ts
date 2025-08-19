@@ -20,15 +20,29 @@ export class DateDirective implements OnInit {
       return;
     }
 
+    // Utility function to safely check showPicker
+    const canUseShowPicker = (el: HTMLInputElement): boolean => {
+      try {
+        // must exist AND not in a cross-origin iframe
+        return typeof el.showPicker === 'function' && window.self === window.top;
+      } catch {
+        return false;
+      }
+    };
+
     // Set input type and attributes
     this.renderer.setAttribute(input, 'type', 'date');
     this.renderer.setAttribute(input, 'placeholder', 'Select date');
     this.renderer.setAttribute(input, 'autocomplete', 'off');
 
-    // Prevent typing but allow native calendar
+    // ✅ Prevent typing but allow useful keys (Tab, Shift, Arrows)
     this.renderer.listen(input, 'keydown', (event: KeyboardEvent) => {
-      event.preventDefault();
+      const allowedKeys = ['Tab', 'Shift', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+      if (!allowedKeys.includes(event.key)) {
+        event.preventDefault();
+      }
     });
+
     this.renderer.setStyle(input, 'cursor', 'pointer');
 
     // Input styling
@@ -70,24 +84,22 @@ export class DateDirective implements OnInit {
     this.renderer.setStyle(icon, 'zIndex', '3');
     this.renderer.setStyle(icon, 'pointerEvents', 'auto');
 
-    // Optional: add a calendar SVG icon (commented out)
     // this.renderer.setProperty(icon, 'innerHTML', `<svg>...</svg>`);
-
     this.renderer.appendChild(wrapper, icon);
 
     // Trigger native date picker on icon click
     this.renderer.listen(icon, 'click', () => {
-      if (typeof input.showPicker === 'function') {
+      if (canUseShowPicker(input)) {
         input.showPicker();
       } else {
-        input.click();
+        input.click(); // safe fallback
       }
     });
-     this.renderer.listen(input, 'click', () => {
-      if (typeof input.showPicker === 'function') {
+
+    // Trigger picker on input click
+    this.renderer.listen(input, 'click', () => {
+      if (canUseShowPicker(input)) {
         input.showPicker();
-      } else {
-        input.click();
       }
     });
 
@@ -100,4 +112,3 @@ export class DateDirective implements OnInit {
     });
   }
 }
- 

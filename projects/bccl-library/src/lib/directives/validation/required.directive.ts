@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { NgControl } from '@angular/forms';
 import { FontLoaderService } from '../../services/font-loader.service';
+import { Subscription } from 'rxjs';
 
 @Directive({
   selector: '[libRequired]',
@@ -21,11 +22,13 @@ export class RequiredDirective implements AfterViewInit, OnDestroy {
 
   private errorMsg!: HTMLElement;
   private wrapper!: HTMLElement;
+  private statusSub?: Subscription; // ✅ Watch for touched/invalid changes
+  private valueSub?: Subscription;  // ✅ Track value changes for live updates
 
   ngAfterViewInit(): void {
     const input = this.el.nativeElement;
 
-    // Create wrapper
+    // Wrap the field
     this.wrapper = this.renderer.createElement('div');
     this.renderer.setStyle(this.wrapper, 'display', 'flex');
     this.renderer.setStyle(this.wrapper, 'flexDirection', 'column');
@@ -36,7 +39,7 @@ export class RequiredDirective implements AfterViewInit, OnDestroy {
     this.renderer.removeChild(parent, input);
     this.renderer.appendChild(this.wrapper, input);
 
-    // Create error message span
+    // Error message span
     this.errorMsg = this.renderer.createElement('span');
     this.renderer.setStyle(this.errorMsg, 'color', 'red');
     this.renderer.setStyle(this.errorMsg, 'fontFamily', '"Open Sans", sans-serif');
@@ -53,32 +56,31 @@ export class RequiredDirective implements AfterViewInit, OnDestroy {
       const baseValidator = this.control.control.validator;
       this.control.control.setValidators([
         ...(baseValidator ? [baseValidator] : []),
-      (control) => {
-        let value = control.value;
-
-        if (!value || (typeof value === 'string' && value.trim() === '')) {
-          return { required: true };
+        (control) => {
+          let value = control.value;
+          if (!value || (typeof value === 'string' && value.trim() === '')) {
+            return { required: true };
+          }
+          value = value.trim();
+          const cleanedValue = value.replace(/\s+/g, ' ');
+          if (cleanedValue === '') return { required: true };
+          if (value !== cleanedValue && control.valid) {
+            control.setValue(cleanedValue, { emitEvent: false });
+          }
+          return null;
         }
-
-        // Remove leading/trailing whitespace
-        value = value.trim();
-
-        // Replace multiple spaces with a single space
-        const cleanedValue = value.replace(/\s+/g, ' ');
-
-        if (cleanedValue === '') return { required: true };
-
-        // Optional: update the form control value to the cleaned one
-        // (but only if it changed and control is valid)
-        if (value !== cleanedValue && control.valid) {
-          control.setValue(cleanedValue, { emitEvent: false }); // prevent infinite loop
-        }
-
-        return null;
-      }
-
       ]);
       this.control.control.updateValueAndValidity();
+
+      // ✅ Update errors when form validation state changes (e.g. markAllAsTouched)
+      this.statusSub = this.control.control.statusChanges.subscribe(() => {
+        this.updateErrorMessage();
+      });
+
+      // ✅ Update errors when value changes
+      this.valueSub = this.control.valueChanges?.subscribe(() => {
+        this.updateErrorMessage();
+      });
     }
 
     // Handle blur
@@ -87,27 +89,32 @@ export class RequiredDirective implements AfterViewInit, OnDestroy {
       this.updateErrorMessage();
     });
 
-    // Update on value changes
-    this.control.valueChanges?.subscribe(() => {
-      this.updateErrorMessage();
-    });
-
+    // Initial check
     this.updateErrorMessage();
   }
 
   ngOnDestroy(): void {
-    const input = this.el.nativeElement;
+    this.statusSub?.unsubscribe();
+    this.valueSub?.unsubscribe();
     const parent = this.renderer.parentNode(this.wrapper);
     if (parent && this.wrapper) {
       this.renderer.removeChild(parent, this.wrapper);
     }
   }
 
-  private updateErrorMessage() {
-    const control = this.control.control;
-    const show = control && control.touched && control.invalid && control.errors?.['required'];
-    this.renderer.setProperty(this.errorMsg, 'innerText', show ? 'Please fill this required field' : '');
-  }
+private updateErrorMessage() {
+  const control = this.control.control;
+  const hasRequired =
+    control && control.touched &&
+    control.invalid &&
+    (control.errors?.['required'] || control.errors?.['uploadFailed']); // ✅ check both
+
+  this.renderer.setProperty(
+    this.errorMsg,
+    'innerText',
+    hasRequired ? 'Please fill this required field' : ''
+  );
 }
 
- 
+
+}

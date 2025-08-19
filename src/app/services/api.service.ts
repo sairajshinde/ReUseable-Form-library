@@ -46,33 +46,50 @@ downloadCertificate(body: URLSearchParams): Observable<Blob> {
   });
 }
 
+// uploadAttachments(selectedFiles: any, applicationId?: string): Observable<any> {
+//   const formData = new FormData();
+
+//   if (selectedFiles['attachment1']) {
+//     formData.append('file1', selectedFiles['attachment1']);
+//   }
+//   if (selectedFiles['attachment2']) {
+//     formData.append('file2', selectedFiles['attachment2']);
+//   }
+//   if (selectedFiles['attachment3']) {
+//     formData.append('file3', selectedFiles['attachment3']);
+//   }
+//   if (selectedFiles['attachment4']) {
+//     formData.append('file4', selectedFiles['attachment4']);
+//   }
+//   if (selectedFiles['cheque']) {
+//     formData.append('attachfile', selectedFiles['cheque']);
+//     return this.http.post(this.uploadAttachFilesWithForm, formData);
+//   }
+
+//   // ✅ Optional applicationId
+//   if (applicationId) {
+//     formData.append('applicationId', applicationId  || '' );
+//   }
+
+//   return this.http.post(this.uploadFilesWithForm, formData);
+// }
 uploadAttachments(selectedFiles: any, applicationId?: string): Observable<any> {
   const formData = new FormData();
 
-  if (selectedFiles['attachment1']) {
-    formData.append('file1', selectedFiles['attachment1']);
-  }
-  if (selectedFiles['attachment2']) {
-    formData.append('file2', selectedFiles['attachment2']);
-  }
-  if (selectedFiles['attachment3']) {
-    formData.append('file3', selectedFiles['attachment3']);
-  }
-  if (selectedFiles['attachment4']) {
-    formData.append('file4', selectedFiles['attachment4']);
-  }
+  if (selectedFiles['attachment1']) formData.append('file1', selectedFiles['attachment1']);
+  if (selectedFiles['attachment2']) formData.append('file2', selectedFiles['attachment2']);
+  if (selectedFiles['attachment3']) formData.append('file3', selectedFiles['attachment3']);
+  if (selectedFiles['attachment4']) formData.append('file4', selectedFiles['attachment4']);
   if (selectedFiles['cheque']) {
     formData.append('attachfile', selectedFiles['cheque']);
     return this.http.post(this.uploadAttachFilesWithForm, formData);
   }
 
-  // ✅ Optional applicationId
-  if (applicationId) {
-    formData.append('applicationId', applicationId  || '' );
-  }
+  formData.append('applicationId', applicationId ?? '');
 
   return this.http.post(this.uploadFilesWithForm, formData);
 }
+
 
 deleteFile(body: URLSearchParams): Observable<any> {
   return this.http.post(this.deleteFileWithForm,

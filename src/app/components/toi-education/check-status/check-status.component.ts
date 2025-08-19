@@ -68,8 +68,10 @@ fieldList = [
     this.fetchStudentData();
   }
 
-  fetchStudentData(): void {
+  fetchStudentData() {
+  
   this.loader.show();
+  Promise.resolve().then(() => {
     this.api.getDetailsByTOID().subscribe({
       next: (res) => {
         console.log('res', res)
@@ -91,10 +93,10 @@ fieldList = [
       error: (err) => {
         this.loader.hide();
         console.error('Failed to load data:', err);
-        this.dialog.alert('Unable to fetch student data.');
+        this.dialog.alert('Session expired! Please log in again.');
       }
     });
-    this.loader.hide();
+    });
   }
 
   mapStatus(code: string): string {
@@ -119,32 +121,32 @@ fieldList = [
   }
 
   if (status === 'Awarded') {
-    // Get application created date from index 29
-    const createdDate = student[27];
-    const created = new Date(createdDate);
-    const today = new Date();
+     const today = new Date();
+  const currentYearNow = today.getFullYear();
+  const createdYear = Number(student[31]); // Ensure number
+
+  // Condition for Continue Scholarship: createdYear is exactly one year before current year
+  const isContinue = createdYear === currentYearNow - 1;
+    
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(today.getFullYear() - 1);
+    const createdyear = student[31];
 
-    const isContinue = created <= oneYearAgo; // Check eligibility
+ 
+  if (createdyear == currentYearNow) {
+    actions.push({
+      icon: '📤',
+      label: 'Upload Cheque',
+      tooltip: 'Upload Cheque',
+      callback: () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,.jpg,.jpeg,.png';
+        input.style.display = 'none';
 
-    // Always add upload and certificate actions
-    actions.push(
-      {
-  icon: '📤',
-  label: 'Upload Cheque',
-  tooltip: 'Upload Cheque',
-  callback: () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf,.jpg,.jpeg,.png';
-    input.style.display = 'none';
-
-    input.addEventListener('change', (event: any) => {
-      const file: File = event.target.files[0];
-
-      // 10MB limit = 10 * 1024 * 1024 bytes
-      const maxSize = 10 * 1024 * 1024;
+        input.addEventListener('change', (event: any) => {
+          const file: File = event.target.files[0];
+          const maxSize = 10 * 1024 * 1024; // 10MB
 
           if (file) {
             if (file.size > maxSize) {
@@ -163,19 +165,30 @@ fieldList = [
           setTimeout(() => document.body.removeChild(input), 1000);
         });
       }
-      },
+    });
+  }
+
+
+    // Always add upload and certificate actions
+    actions.push(
       {
         icon: '📄',
         label: 'Download Certificate',
         tooltip: 'Download Certificate',
         callback: () => this.downloadCertificate(student)
-      },{
+      }
+    );
+
+    if(isContinue){
+      actions.push(
+        {
          icon: '🔁',
         label: 'Continue Scholarship',
         tooltip: 'Continue to Next Year',
         callback: () => this.continueScholarship(student)
       }
-    );
+      )
+    }
   }
 
   return actions;

@@ -75,7 +75,8 @@ export class MenuBarDirective implements OnInit, OnChanges, OnDestroy {
     this.renderer.setStyle(nav, 'border-bottom', '1px solid #e6e6e6');
     this.renderer.setStyle(nav, 'width', '100%');
     this.renderer.setStyle(nav, 'box-sizing', 'border-box');
-    this.renderer.setStyle(nav, 'position', 'relative');
+    this.renderer.setStyle(nav, 'position', 'static');
+    this.renderer.setAttribute(nav, 'class', 'menu-nav');
 
     const toggle = this.renderer.createElement('div');
     this.renderer.setStyle(toggle, 'display', 'none');
@@ -107,6 +108,9 @@ export class MenuBarDirective implements OnInit, OnChanges, OnDestroy {
     const style = this.renderer.createElement('style');
     const styles = `
   @media (max-width: 768px) {
+  .menu-nav{
+  position: relative !important;
+  }
     .menu-toggle {
       display: flex !important;
       margin-bottom: 10px;

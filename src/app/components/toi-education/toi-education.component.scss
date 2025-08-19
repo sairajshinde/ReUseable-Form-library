@@ -1,7 +1,15 @@
 .logo{
     width: 300px;
+    margin-bottom: -40px;
+}
+
+@media (max-width: 769px) {
+    .logo{
+    width: 300px;
+    margin-bottom: 0px;
+    }
 }
 .logo img{
-    padding: 25px 0 0 25px;
-    width: 235px;
+    padding: 10px 0 0 10px;
+    width: 180px;
 }
