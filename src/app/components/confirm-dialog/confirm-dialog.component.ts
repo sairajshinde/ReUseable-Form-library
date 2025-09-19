@@ -33,6 +33,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
       background-color: rgb(0, 191, 255);
       border: none;
       color: white;
+      width: 80px;
     }
 
     .custom-modal .btn-custom:hover {
@@ -48,14 +49,15 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
             <button type="button" class="btn-close" (click)="close('cancel')"></button>
           </div>
           <div class="modal-body">
-            <p>{{ message }}</p>
+            <p class="mb-1">{{ message }}</p>
           </div>
-          <div class="modal-footer">
-            <button *ngIf="type === 'confirm'" type="button" class="btn btn-custom" (click)="close('cancel')">
-              Cancel
-            </button>
+          <div class="modal-footer mb-3">
+            
             <button type="button" class="btn btn-custom" (click)="close('ok')">
               OK
+            </button>
+            <button *ngIf="type === 'confirm'" type="button" class="btn btn-custom" (click)="close('cancel')">
+              Cancel
             </button>
           </div>
         </div>

@@ -81,25 +81,18 @@ export class DateDirective implements OnInit {
     this.renderer.setStyle(icon, 'width', '18px');
     this.renderer.setStyle(icon, 'height', '18px');
     this.renderer.setStyle(icon, 'cursor', 'pointer');
-    this.renderer.setStyle(icon, 'zIndex', '3');
+    this.renderer.setStyle(icon, 'zIndex', '1');
     this.renderer.setStyle(icon, 'pointerEvents', 'auto');
 
     // this.renderer.setProperty(icon, 'innerHTML', `<svg>...</svg>`);
     this.renderer.appendChild(wrapper, icon);
 
     // Trigger native date picker on icon click
-    this.renderer.listen(icon, 'click', () => {
+    this.renderer.listen(input, 'click', () => {
       if (canUseShowPicker(input)) {
         input.showPicker();
       } else {
         input.click(); // safe fallback
-      }
-    });
-
-    // Trigger picker on input click
-    this.renderer.listen(input, 'click', () => {
-      if (canUseShowPicker(input)) {
-        input.showPicker();
       }
     });
 

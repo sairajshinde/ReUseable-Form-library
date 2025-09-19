@@ -1,8 +1,5 @@
-import { generate } from "rxjs"
-
-const url = 'https://uatjiffy.timesgroup.com/timescape/api/';
-// public static apitime = require('../../assets/configdata/appconfig.json').apiBaseUrl;
-//   "apiBaseUrl": "https://wsqa.timesgroup.com",
+import { environment } from "../../../environments/environment"; 
+const url = environment.apiUrl;
 
 export const publicApi = {
     addEntry: url +'scholarship/addEntryList',
@@ -13,5 +10,9 @@ export const publicApi = {
     generateCertificate: url + 'scholarship/generateCertificate',
     deleteFile: url + 'scholarship/deleteFile',
     downloadFile: url + 'scholarship/downloadFile',
-    customLogin: url + 'login/chkuser'
+    customLogin: url + 'login/chkuser',
+    listRole: url + 'scholarship/listRoles',
+    checkPendingRequest: url + 'scholarship/checkPendingRequest',
+    updatePendingRequest: url + 'scholarship/updatePendingRequest',
+    showAcceptedList: url + 'scholarship/showAcceptedList'
 }

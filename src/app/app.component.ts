@@ -4,10 +4,15 @@ import { CommonModule } from '@angular/common';
 import { UiDirectivesModule } from '../../projects/bccl-library/src/lib/directives/ui-directives.module';
 import { RouterOutlet } from '@angular/router';
 import { PopupComponent } from './components/popup/popup.component';
-import { provideHttpClient } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient } from '@angular/common/http';
 import { LoaderService } from './services/shared/loader.service';
 import { Observable } from 'rxjs';
 import { CommonDialogService } from './services/shared/common-dialog.service';
+import { ApiService } from './services/api.service';
+import { CommonService } from './services/shared/common.service';
+import { AuthGuard } from './services/auth.guard';
+import { tokenInterceptor } from './services/token-interceptor.interceptor';
+import { initMenu } from './services/shared/menu.config';
 
 
 @Component({
@@ -22,9 +27,10 @@ export class AppComponent {
   constructor(
     public loaderService: LoaderService,
     private dialogService: CommonDialogService,
-    vcr: ViewContainerRef
+    vcr: ViewContainerRef,
   ) {
     this.dialogService.setViewContainerRef(vcr);
+    
   }
 }
 

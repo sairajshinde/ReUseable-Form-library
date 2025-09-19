@@ -129,34 +129,8 @@
   #studentDetailsModal { display: none !important; }
   #printArea { display: block !important; }
 }
-
-    .custom-modal .modal-title {
-      text-align: center;
-      width: 100%;
-      font-weight: bold;
-    }
-
-    .custom-modal .modal-body {
-      font-size: 1.1rem;
-    }
-
-    .custom-modal .modal-footer {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .custom-modal .btn-custom {
-      background-color: rgb(0, 191, 255) !important;
-      border: none;
-      color: white;
-      width: 80px;
-    }
-
-    .custom-modal .btn-custom:hover {
-      background-color: rgb(0, 160, 210)!important ;
-    }
-#center div {
-  justify-content: center;
-  align-items: center;
+.flag{
+    background-color: rgb(245, 241, 241) !important;
+    padding: 2px 12px !important;
+    font-size: 18px !important;
 }

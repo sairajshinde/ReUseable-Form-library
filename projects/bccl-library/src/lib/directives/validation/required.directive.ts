@@ -112,7 +112,7 @@ private updateErrorMessage() {
   this.renderer.setProperty(
     this.errorMsg,
     'innerText',
-    hasRequired ? 'Please fill this required field' : ''
+    hasRequired ? 'This is a required field.' : ''
   );
 }
 

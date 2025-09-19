@@ -1,17 +1,19 @@
-import { Component, ElementRef, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UiDirectivesModule } from '../../../../../projects/bccl-library/src/lib/directives/ui-directives.module';
 import { RouterOutlet, RouterModule, Router } from '@angular/router';
-import { getSharedMenu, setPopupService, MenuItem } from '../../../services/shared/menu.config';
+import { getSharedMenu, setPopupService, MenuItem, initMenu } from '../../../services/shared/menu.config';
 import { PopupService } from '../../../services/shared/popup.service';
 import { ApiService } from '../../../services/api.service';
-import { HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
 import { Location } from '@angular/common';
 import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { LoaderService } from '../../../services/shared/loader.service';
 import { CommonDialogService } from '../../../services/shared/common-dialog.service';
 import { firstValueFrom } from 'rxjs';
+import { CommonService } from '../../../services/shared/common.service';
+import { ConfigService } from '../../../services/shared/config.service';
 
 export function maxZeroValidator(control: AbstractControl): ValidationErrors | null {
   const value = parseFloat(control.value);
@@ -101,6 +103,7 @@ export class NewScholarshipComponent implements OnInit {
   special: boolean = false;
   selectedFiles: { [key: string]: File } = {};
   removeFiles: { [key: string]: string } = {};
+  onupdateRemovedfile: { [key: string]: string[] } = {};
   genderOptions = [
     { label: 'Male', id: 'Male' },
     { label: 'Female', id: 'Female' },
@@ -136,13 +139,13 @@ courseOptions: { [key: string]: { label: string; id: string; duration?: string }
     { label: 'Bachelor in Home Science', id: 'Bachelor in Home Science', duration: '3' },
 
     // 4 years duration
-    { label: 'B.Tech', id: 'B.Tech', duration: '4' },
+    { label: 'B. Tech.', id: 'B. Tech.', duration: '4' },
     { label: 'B.E.', id: 'B.E.', duration: '4' },
     // { label: 'B.TECH IN MECHANICAL', id: 'B.TECH IN MECHANICAL', duration: '4' },
     // { label: 'B.TECH IN BIOTECHNOLOGY & ENGINEERING PHYSICS', id: 'B.TECH IN BIOTECHNOLOGY & ENGINEERING PHYSICS', duration: '4' },
     { label: 'B.D.S.', id: 'B.D.S.', duration: '4' },
     { label: 'B. Pharm.', id: 'B. Pharm.', duration: '4' },
-    { label: 'B. Textile', id: 'B. Textile', duration: '4' },
+    { label: 'B. Textile.', id: 'B. Textile.', duration: '4' },
     { label: 'B. Chem. Eng.', id: 'B. Chem. Eng.', duration: '4' },
 
     // 5 years duration
@@ -181,8 +184,9 @@ showOtherCourseInput: boolean = false;
     { label: '4th Year', id: '4' },
     { label: '5th Year', id: '5' }
   ];
-
-  constructor(private fb: FormBuilder, private loader: LoaderService, private popupService: PopupService, private api: ApiService, private location: Location, private dialog: CommonDialogService, private router: Router) {
+enableScholarUI!: boolean ;
+Msg="";
+  constructor(private fb: FormBuilder, private cdr: ChangeDetectorRef, private config: ConfigService, private common: CommonService, private loader: LoaderService, private popupService: PopupService, private api: ApiService, private location: Location, private dialog: CommonDialogService, private router: Router) {
     this.studentForm = this.fb.group({
       childName: ['', [Validators.maxLength(100)]],
       childDob: [''],
@@ -222,16 +226,27 @@ showOtherCourseInput: boolean = false;
   }
 
   ngOnInit(): void {
-    setPopupService(this.popupService);
+
+  initMenu(this.common);
+  setPopupService(this.popupService);
+  this.menu = getSharedMenu();
     this.setparent();
-    this.menu = getSharedMenu();
     this.handleResultDateLimit();
     this.handleCgpaAndMarksLogic();
     this.handleAggregateCalculation();
     const state = history.state;
     const data = history.state?.studentData;
     this.flag = history.state?.flag;
-    
+    this.config.loadConfig().subscribe(config => {
+      debugger
+      setTimeout(() => {
+        this.enableScholarUI = config.enableScholarUI === false? config.enableScholarUI : true;
+        this.Msg = config.message;
+        this.cdr.detectChanges();
+      console.log(this.enableScholarUI, this.Msg);
+      });
+      
+    });
     if (data && Array.isArray(data)) {
       console.log(data)
       this.populateFormFromStudentData(data, this.flag);
@@ -339,10 +354,17 @@ showOtherCourseInput: boolean = false;
   onSubmit(): void {
   if (this.studentForm.invalid) {
   this.studentForm.markAllAsTouched();
-
-  ['childName', 'childDob', 'childGender', 'childEmailId', 'childMarritalStatus', 'childMobile',  'childContactNo', 'examPassed', 'firstAttempt', 'passedYear', 'nameOfCollege', 'schemeApplied', 'courseApplied', 'durationOfCourse', 'schemeYears', 'attachment1', 'attachment2'].forEach((key) => {
+  let arr =  ['childName', 'childDob', 'childGender', 'childEmailId', 'childMarritalStatus', 'childMobile',  'childContactNo', 'examPassed', 'firstAttempt', 'passedYear', 'nameOfCollege', 'schemeApplied', 'courseApplied', 'durationOfCourse', 'schemeYears', 'attachment1', 'attachment2']
+  if (this.special) {
+    arr.push('attachment3');
+  } else if (this.achiver) {
+    arr.push('attachment4');
+  }
+   arr.forEach(f => {
+    console.log(f, "=>", this.studentForm.get(f)?.value);
+  });
+  arr.forEach((key) => {
     const control = this.studentForm.get(key);
-
     if (
       control &&
       control.enabled &&
@@ -361,7 +383,7 @@ showOtherCourseInput: boolean = false;
   });
 
   // Show alert first
- this.dialog.alert('Please fill all required fields correctly.', 'ALERT')
+ this.dialog.alert('Please fill all required fields.', 'ALERT')
     .then(() => {
       if (firstInvalidControl) {
         const element = document.querySelector(
@@ -380,7 +402,7 @@ showOtherCourseInput: boolean = false;
 
 
     const raw = this.studentForm.getRawValue();
-
+ 
     // ✅ Determine CGPA or Marks block used
     const usingCGPA = !!this.studentForm.get('cgpaA')?.value || !!this.studentForm.get('cgpaB')?.value;
     const usingMarks = !!this.studentForm.get('marksObtained')?.value || !!this.studentForm.get('marksTotal')?.value;
@@ -421,11 +443,25 @@ showOtherCourseInput: boolean = false;
     }
 
     if (!aggregate) {
-      this.dialog.alert('Aggregate could not be calculated. Please enter valid values.', 'ALERT');
+      this.dialog.alert('Fill either "Total Marks Obtained" or "Cumulative Grade Point Average (CGPA)"', 'ALERT');
       return;
     }
 
     this.studentForm.patchValue({ aggregate });
+      ['attachment1', 'attachment2', 'attachment3', 'attachment4'].forEach(key => {
+        const val = this.studentForm.get(key)?.value;
+
+        if (val instanceof File) {
+          // ✅ New upload → patch filename
+          this.studentForm.patchValue({ [key]: val.name });
+        } else if (typeof val === 'string') {
+          // ✅ Already a filename → keep as is
+          this.studentForm.patchValue({ [key]: val });
+        } else {
+          // ✅ Nothing set
+          this.studentForm.patchValue({ [key]: null });
+        }
+      });
 
     const payload = this.studentForm.getRawValue();
     delete payload.cgpaA;
@@ -489,11 +525,41 @@ showOtherCourseInput: boolean = false;
       next: (res) => {
         console.log('Response.....' , res);
         if (res?.status === 'success') {
-          this.applicationID = res?.data?.applicationId;
-          this.loader.hide();
-          this.dialog.alert('Form submitted successfully with applicationID: ' + res?.data?.applicationId, 'CONFIRMATION');
-          this.onReset();
-          this.router.navigate(['/check-status']);
+      if (this.onupdateRemovedfile && Object.keys(this.onupdateRemovedfile).length > 0) {
+            this.oneditRemove(this.onupdateRemovedfile).then(() => {
+              this.applicationID = res?.data?.applicationId;
+              this.loader.hide();
+              let msg = '';
+              if(this.flag === 'edit'){
+                msg = 'Application ID: ' + res?.data?.applicationId + ' has been updated successfully'
+              } else {
+                msg = 'Application ID: ' + res?.data?.applicationId + ' has been submitted successfully'
+              }
+              this.dialog.alert(
+                msg,
+                'CONFIRMATION'
+              ).then(() => {
+                this.onReset();
+                this.router.navigate(['/check-status']);
+              });
+            });
+          } else {
+            this.applicationID = res?.data?.applicationId;
+            this.loader.hide();
+             let msg = '';
+              if(this.flag === 'edit'){
+                msg = 'Application ID: ' + res?.data?.applicationId + ' has been updated successfully'
+              } else {
+                msg = 'Application ID: ' + res?.data?.applicationId + ' has been submitted successfully'
+              }
+              this.dialog.alert(
+                msg,
+              'CONFIRMATION'
+            ).then(() => {
+              this.onReset();
+              this.router.navigate(['/check-status']);
+            });
+          }
         } else if (res?.status === 'error') {  
           this.loader.hide(); 
           if(res?.message) {
@@ -506,28 +572,349 @@ showOtherCourseInput: boolean = false;
       error: (err) => {
         console.error('Submission failed:', err);
           this.loader.hide();
-          this.dialog.alert('Something went wrong while submitting. Please try again.');
+          this.dialog.alert('Unexpected error while submitting the application. Please try again.');
       }
     });
     });
   }
  
-  populateFormFromStudentData(data: any[], flag: any): void {
-    if (!Array.isArray(data)) return;
-    console.log('flag :', flag);
+oneditRemove(onupdateRemovedfile: { [key: string]: string[] }): Promise<void> {
+  const deletePromises: Promise<void>[] = [];
 
-    if (flag === 'contiune'){
+  Object.entries(onupdateRemovedfile).forEach(([controlName, fileNames]) => {
+    const files = Array.isArray(fileNames) ? fileNames : [fileNames]; // normalize
+
+    files.forEach((fileName) => {
+      const encodedFileName = btoa(fileName);
+      const body = new URLSearchParams();
+      body.set('fileName', encodedFileName);
+      body.set('type', '');
+      body.set('applicationID', this.applicationID);
+      body.set('flag', controlName.toUpperCase());
+
+      const deletePromise = new Promise<void>((resolve) => {
+        this.api.deleteFile(body).subscribe({
+          next: () => {
+            console.log(`✅ Previous File '${fileName}' deleted from server`);
+            resolve();
+          },
+          error: (err) => {
+            console.error(`❌ Failed to remove file '${fileName}'`, err);
+            resolve(); // ⚠️ resolve so Promise.allSettled always continues
+          }
+        });
+      });
+
+      deletePromises.push(deletePromise);
+    });
+  });
+
+  return Promise.allSettled(deletePromises).then(() => {
+    console.log("All delete requests finished (success or fail).");
+    this.onupdateRemovedfile = {}; // reset after done
+  });
+}
+
+  // populateFormFromStudentData(data: any[], flag: any): void {
+  //   if (!Array.isArray(data)) return;
+  //   console.log('flag :', flag);
+
+  //   if (flag === 'contiune'){
+  //   const genderValue = this.getOptionIdFromLabel(this.genderOptions, data[3]);
+  //   const maritalStatusValue = this.getOptionIdFromLabel(this.maritalStatuses, data[4]);
+
+  //   // 🔹 Scheme, Course & Duration mapping (copied from edit logic)
+  //   const schemeAppliedValue = this.getOptionIdFromLabel(this.schemes, data[11]);
+  //   const durationOfCourseValue = this.getOptionIdFromLabel(this.durationYears, data[19]);
+    
+  //   const lastNumber = parseInt(data[20]?.slice(-1), 10) || 1;
+  //   const incremented = String(lastNumber + 1);
+
+  //   const schemeYearsValue = this.getOptionIdFromLabel(this.years, incremented);
+  //   console.log('id:', schemeYearsValue);
+  //   const rawCourseId = data[20]?.split(' - ')[0]?.trim();
+  //   let matchedCourseId = '';
+  //   let isOtherCourse = false;
+
+  //   const allCourses = Object.values(this.courseOptions).flat();
+  //   const matched = allCourses.find(opt => opt.id === rawCourseId);
+
+  //   if (matched) {
+  //     matchedCourseId = matched.id;
+  //     isOtherCourse = matched.id === 'Others';
+  //   } else {
+  //     matchedCourseId = 'Others';
+  //     isOtherCourse = true;
+  //   }
+  //   this.showOtherCourseInput = isOtherCourse;
+
+  //   const schemeLower = data[11]?.toLowerCase();
+  //   if (schemeLower === 'graduate') {
+  //     this.durationYears = [
+  //   { label: '3 Years', id: '3' },
+  //   { label: '4 Years', id: '4' },
+  //   { label: '5 Years', id: '5' }
+  // ];
+  
+  //   } else {
+  //     this.durationYears = [
+  //   { label: '1 Year', id: '1' },
+  //   { label: '2 Years', id: '2' },
+  //   { label: '3 Years', id: '3' },
+  //   { label: '4 Years', id: '4' },
+  //   { label: '5 Years', id: '5' }
+  // ];
+  //   }
+  //   if (schemeLower === 'graduate') {
+  //     this.currentCourseOptions = this.courseOptions['graduate'];
+  //      this.currentCourseOptions = [
+  //     ...this.courseOptions['graduate'], ...this.courseOptions['default']];
+  //      this.studentForm.get('schemeYears')?.enable();
+  //   } else if (schemeLower === 'under graduate') {
+  //     this.currentCourseOptions = [...this.courseOptions['default']];
+  //     this.studentForm.get('schemeYears')?.disable();
+  //   } else if (schemeLower === 'post graduate') {
+  //     this.currentCourseOptions = [
+  //     ...this.courseOptions['postGraduate'], ...this.courseOptions['default']];
+  //     this.studentForm.get('schemeYears')?.disable();
+  //   }else if(schemeLower === 'students with special needs' || schemeLower ===  'national/state level achievers'){
+  //        this.currentCourseOptions = [
+  //     ...this.courseOptions['graduate'],
+  //   ...this.courseOptions['postGraduate'], ...this.courseOptions['default']
+  //   ];
+  //     this.studentForm.get('schemeYears')?.enable();
+  //   } else {
+  //     this.currentCourseOptions = this.courseOptions['default'];
+  //     this.studentForm.get('schemeYears')?.enable();
+  //   }
+
+  //   setTimeout(() => {
+  //     this.studentForm.patchValue({
+  //       childName: data[1] || '',
+  //       childDob: this.formatDateToDDMMYYYY(data[2]),
+  //       childGender: genderValue,
+  //       childMarritalStatus: maritalStatusValue,
+  //       childEmailId: data[5] || '',
+  //       childMobile: data[6],
+  //       childContactNo: data[7],
+  //       nameOfCollege: data[18] || '',
+  //       schemeApplied: schemeAppliedValue,
+  //       courseApplied: matchedCourseId,
+  //       otherCourse: isOtherCourse ? rawCourseId : '',
+  //       durationOfCourse: durationOfCourseValue,
+  //       schemeYears : schemeYearsValue
+  //     });
+
+  //     this.applicationID = data[0] || '';
+  //     this.status = data[30];
+
+  //     // disable unchanged personal fields
+  //     this.studentForm.get('childName')?.disable();
+  //     this.studentForm.get('childDob')?.disable();
+  //     this.studentForm.get('childGender')?.disable();
+  //     this.studentForm.get('schemeApplied')?.disable();
+  //     this.studentForm.get('courseApplied')?.disable();
+  //     if (isOtherCourse) {
+  //       this.studentForm.get('otherCourse')?.disable();
+  //     }
+  //     this.studentForm.get('durationOfCourse')?.disable();
+      
+  //   });
+  //   }
+  //   else if (flag === 'edit') {
+  //     const genderValue = this.getOptionIdFromLabel(this.genderOptions, data[3]);
+  //     const maritalStatusValue = this.getOptionIdFromLabel(this.maritalStatuses, data[4]);
+  //     const firstAttemptValue = this.getOptionIdFromLabel(this.attempts, data[10]);
+  //     const schemeAppliedValue = this.getOptionIdFromLabel(this.schemes, data[11]);
+  //     const schemeYearsValue = this.getOptionIdFromLabel(this.years, data[20]?.slice(-1));
+  //     const durationOfCourseValue = this.getOptionIdFromLabel(this.durationYears, data[19]);
+
+  //     if(data[20]?.slice(-1) == "1"){
+  //       this.newscholarship();
+  //     }
+  //     const rawCourseId = data[20]?.split(' - ')[0]?.trim();
+  //     let matchedCourseId = '';
+  //     let isOtherCourse = false;
+
+  //     const allCourses = Object.values(this.courseOptions).flat();
+  //     const matched = allCourses.find(opt => opt.id === rawCourseId);
+
+  //     if (matched) {
+  //       matchedCourseId = matched.id;
+  //       isOtherCourse = matched.id === 'Others';
+  //     } else {
+  //       matchedCourseId = 'Others';
+  //       isOtherCourse = true;
+  //     }
+
+  //     this.showOtherCourseInput = isOtherCourse;
+
+  //     const schemeLower = data[11]?.toLowerCase();
+      
+  //     if (schemeLower === 'graduate') {
+  //       this.durationYears = [
+  //     { label: '3 Years', id: '3' },
+  //     { label: '4 Years', id: '4' },
+  //     { label: '5 Years', id: '5' }
+  //     ]; 
+  //     this.studentForm.get('schemeYears')?.enable();
+  //     } else {
+  //       this.durationYears = [
+  //     { label: '1 Year', id: '1' },
+  //     { label: '2 Years', id: '2' },
+  //     { label: '3 Years', id: '3' },
+  //     { label: '4 Years', id: '4' },
+  //     { label: '5 Years', id: '5' }
+  //   ];
+  //   this.studentForm.get('schemeYears')?.enable();
+  //   }
+  //   if (schemeLower === 'graduate') {
+  //     this.currentCourseOptions = this.courseOptions['graduate'];
+  //      this.currentCourseOptions = [
+  //     ...this.courseOptions['graduate'], ...this.courseOptions['default']];
+      
+  //   }  else if (schemeLower === 'under graduate') {
+  //     this.currentCourseOptions = [...this.courseOptions['default']];
+  //     this.studentForm.get('schemeYears')?.disable();
+  //   }else if (schemeLower === 'post graduate') {
+  //     this.currentCourseOptions = [
+  //     ...this.courseOptions['postGraduate'], ...this.courseOptions['default']];
+  //     this.studentForm.get('schemeYears')?.disable();
+  //   }else if(schemeLower === 'students with special needs' || schemeLower ===  'national/state level achievers'){
+  //        this.currentCourseOptions = [
+  //     ...this.courseOptions['graduate'],
+  //   ...this.courseOptions['postGraduate'], ...this.courseOptions['default']
+  //   ];
+  //     this.studentForm.get('schemeYears')?.enable();
+  //   } else {
+  //     this.currentCourseOptions = this.courseOptions['default'];
+  //     this.studentForm.get('schemeYears')?.enable();
+  //   }
+
+  //     const scheme = data[11];
+  //     this.special = scheme === 'Students with special needs';
+  //     this.achiver = scheme === 'National/State Level Achievers';
+
+  //     setTimeout(() => {
+  //       this.studentForm.patchValue({
+  //         childName: data[1] || '',
+  //         childDob: this.formatDateToDDMMYYYY(data[2]),
+  //         childGender: genderValue,
+  //         childMarritalStatus: maritalStatusValue,
+  //         childEmailId: data[5] || '',
+  //         childMobile: data[6],
+  //         childContactNo: data[7],
+  //         examPassed: data[8] || '',
+  //         passedYear: this.formatDateToDDMMYYYY(data[9]),
+  //         firstAttempt: firstAttemptValue,
+  //         nameOfCollege: data[18] || '',
+  //         aggregate: data[17] || '',
+  //         marksType: data[13] || '',
+  //         schemeApplied: schemeAppliedValue,
+  //         courseApplied: matchedCourseId,
+  //         otherCourse: isOtherCourse ? rawCourseId : '',
+  //         durationOfCourse: durationOfCourseValue,
+  //         schemeYears: schemeYearsValue
+  //       });
+
+  //       if(isOtherCourse){
+  //         this.studentForm.get('otherCourse')?.setValidators([Validators.required]);
+  //       }
+        
+  //       this.studentForm.get('childName')?.enable();
+  //       this.studentForm.get('childDob')?.enable();
+  //       this.studentForm.get('childGender')?.enable();
+
+  //       const attachment3 = this.studentForm.get('attachment3');
+  //       const attachment4 = this.studentForm.get('attachment4');
+
+  //       if (this.special) {
+  //         attachment3?.setValidators([Validators.required]);
+  //       } else {
+  //         attachment3?.clearValidators();
+  //       }
+  //       attachment3?.updateValueAndValidity();
+
+  //       if (this.achiver) {
+  //         attachment4?.setValidators([Validators.required]);
+  //       } else {
+  //         attachment4?.clearValidators();
+  //       }
+  //       attachment4?.updateValueAndValidity();
+  //     });
+
+  //     if (data[13] === 'normal') {
+  //       setTimeout(() => {
+  //         this.studentForm.patchValue({
+  //           marksObtained: data[14] || '',
+  //           marksTotal: data[15] || '',
+  //         });
+  //       });
+  //     } else {
+  //       setTimeout(() => {
+  //         this.studentForm.patchValue({
+  //           cgpaA: data[14] || '',
+  //           cgpaB: data[15] || '',
+  //         });
+  //       });
+  //     }
+
+  //     this.applicationID = data[0];
+  //     this.status = data[30];
+  //      const filePromises: Promise<void>[] = [];
+    
+  //     const attachmentPrefills: {
+  //       key: 'attachment1' | 'attachment2' | 'attachment3' | 'attachment4';
+  //       fileName: string | null;
+        
+  //       condition?: boolean;
+  //     }[] = [
+  //         { key: 'attachment1', fileName: data[23] },
+  //         { key: 'attachment2', fileName: data[24] },
+  //         { key: 'attachment3', fileName: data[25], condition: this.special },
+  //         { key: 'attachment4', fileName: data[38], condition: this.achiver },
+  //       ];
+
+  //     attachmentPrefills.forEach(({ key, fileName, condition }) => {
+        
+  //       if (fileName && (condition === undefined || condition)) {
+  //         this.studentForm.get(key)?.setValue(fileName);
+  //         this.studentForm.get(key)?.setErrors(null);
+  //         this.removeFiles[key] = fileName;
+  //         console.log(this.studentForm.get(key)?.getRawValue());
+  //       }
+        
+  //     });
+
+
+  //     Promise.all(filePromises).then(() => {
+  //       console.log('✅ All attachments populated.');
+  //     });
+  //     // this.prefillAttachments(data);
+  //   }
+  // }
+populateFormFromStudentData(data: any[], flag: any): void {
+  if (!Array.isArray(data)) return;
+  console.log('flag :', flag);
+
+  if (flag === 'contiune') {
     const genderValue = this.getOptionIdFromLabel(this.genderOptions, data[3]);
     const maritalStatusValue = this.getOptionIdFromLabel(this.maritalStatuses, data[4]);
 
     // 🔹 Scheme, Course & Duration mapping (copied from edit logic)
     const schemeAppliedValue = this.getOptionIdFromLabel(this.schemes, data[11]);
     const durationOfCourseValue = this.getOptionIdFromLabel(this.durationYears, data[19]);
-    
-    const lastNumber = parseInt(data[20]?.slice(-1), 10) || 1;
-    const incremented = String(lastNumber + 1);
 
-    const schemeYearsValue = this.getOptionIdFromLabel(this.years, incremented);
+    // ✅ schemeYearsValue logic updated
+    let schemeYearsValue = '';
+    if (data[20]?.includes('-')) {
+      const lastNumber = parseInt(data[20].split('-').pop()?.trim() || '', 10);
+      if (!isNaN(lastNumber)) {
+        const incremented = String(lastNumber + 1);
+        schemeYearsValue = this.getOptionIdFromLabel(this.years, incremented);
+      }
+    }
+
     console.log('id:', schemeYearsValue);
     const rawCourseId = data[20]?.split(' - ')[0]?.trim();
     let matchedCourseId = '';
@@ -548,37 +935,36 @@ showOtherCourseInput: boolean = false;
     const schemeLower = data[11]?.toLowerCase();
     if (schemeLower === 'graduate') {
       this.durationYears = [
-    { label: '3 Years', id: '3' },
-    { label: '4 Years', id: '4' },
-    { label: '5 Years', id: '5' }
-  ];
-  
+        { label: '3 Years', id: '3' },
+        { label: '4 Years', id: '4' },
+        { label: '5 Years', id: '5' }
+      ];
     } else {
       this.durationYears = [
-    { label: '1 Year', id: '1' },
-    { label: '2 Years', id: '2' },
-    { label: '3 Years', id: '3' },
-    { label: '4 Years', id: '4' },
-    { label: '5 Years', id: '5' }
-  ];
+        { label: '1 Year', id: '1' },
+        { label: '2 Years', id: '2' },
+        { label: '3 Years', id: '3' },
+        { label: '4 Years', id: '4' },
+        { label: '5 Years', id: '5' }
+      ];
     }
     if (schemeLower === 'graduate') {
       this.currentCourseOptions = this.courseOptions['graduate'];
-       this.currentCourseOptions = [
-      ...this.courseOptions['graduate'], ...this.courseOptions['default']];
-       this.studentForm.get('schemeYears')?.enable();
+      this.currentCourseOptions = [
+        ...this.courseOptions['graduate'], ...this.courseOptions['default']];
+      this.studentForm.get('schemeYears')?.enable();
     } else if (schemeLower === 'under graduate') {
       this.currentCourseOptions = [...this.courseOptions['default']];
       this.studentForm.get('schemeYears')?.disable();
     } else if (schemeLower === 'post graduate') {
       this.currentCourseOptions = [
-      ...this.courseOptions['postGraduate'], ...this.courseOptions['default']];
+        ...this.courseOptions['postGraduate'], ...this.courseOptions['default']];
       this.studentForm.get('schemeYears')?.disable();
-    }else if(schemeLower === 'students with special needs' || schemeLower ===  'national/state level achievers'){
-         this.currentCourseOptions = [
-      ...this.courseOptions['graduate'],
-    ...this.courseOptions['postGraduate'], ...this.courseOptions['default']
-    ];
+    } else if (schemeLower === 'students with special needs' || schemeLower === 'national/state level achievers') {
+      this.currentCourseOptions = [
+        ...this.courseOptions['graduate'],
+        ...this.courseOptions['postGraduate'], ...this.courseOptions['default']
+      ];
       this.studentForm.get('schemeYears')?.enable();
     } else {
       this.currentCourseOptions = this.courseOptions['default'];
@@ -599,7 +985,7 @@ showOtherCourseInput: boolean = false;
         courseApplied: matchedCourseId,
         otherCourse: isOtherCourse ? rawCourseId : '',
         durationOfCourse: durationOfCourseValue,
-        schemeYears : schemeYearsValue
+        schemeYears: schemeYearsValue
       });
 
       this.applicationID = data[0] || '';
@@ -615,180 +1001,189 @@ showOtherCourseInput: boolean = false;
         this.studentForm.get('otherCourse')?.disable();
       }
       this.studentForm.get('durationOfCourse')?.disable();
-      
+
     });
-    }
-    else if (flag === 'edit') {
-      const genderValue = this.getOptionIdFromLabel(this.genderOptions, data[3]);
-      const maritalStatusValue = this.getOptionIdFromLabel(this.maritalStatuses, data[4]);
-      const firstAttemptValue = this.getOptionIdFromLabel(this.attempts, data[10]);
-      const schemeAppliedValue = this.getOptionIdFromLabel(this.schemes, data[11]);
-      const schemeYearsValue = this.getOptionIdFromLabel(this.years, data[20]?.slice(-1));
-      const durationOfCourseValue = this.getOptionIdFromLabel(this.durationYears, data[19]);
+  }
+  else if (flag === 'edit') {
+    const genderValue = this.getOptionIdFromLabel(this.genderOptions, data[3]);
+    const maritalStatusValue = this.getOptionIdFromLabel(this.maritalStatuses, data[4]);
+    const firstAttemptValue = this.getOptionIdFromLabel(this.attempts, data[10]);
+    const schemeAppliedValue = this.getOptionIdFromLabel(this.schemes, data[11]);
 
-      const rawCourseId = data[20]?.split(' - ')[0]?.trim();
-      let matchedCourseId = '';
-      let isOtherCourse = false;
-
-      const allCourses = Object.values(this.courseOptions).flat();
-      const matched = allCourses.find(opt => opt.id === rawCourseId);
-
-      if (matched) {
-        matchedCourseId = matched.id;
-        isOtherCourse = matched.id === 'Others';
-      } else {
-        matchedCourseId = 'Others';
-        isOtherCourse = true;
+    // ✅ schemeYearsValue logic updated
+    let schemeYearsValue = '';
+    if (data[20]?.includes('-')) {
+      const lastNumber = parseInt(data[20].split('-').pop()?.trim() || '', 10);
+      if (!isNaN(lastNumber)) {
+        schemeYearsValue = this.getOptionIdFromLabel(this.years, String(lastNumber));
       }
+    }
 
-      this.showOtherCourseInput = isOtherCourse;
+    const durationOfCourseValue = this.getOptionIdFromLabel(this.durationYears, data[19]);
 
-      const schemeLower = data[11]?.toLowerCase();
-      
-      if (schemeLower === 'graduate') {
-        this.durationYears = [
-      { label: '3 Years', id: '3' },
-      { label: '4 Years', id: '4' },
-      { label: '5 Years', id: '5' }
-      ]; 
+    if (data[20]?.slice(-1) == "1") {
+      this.newscholarship();
+    }
+    const rawCourseId = data[20]?.split(' - ')[0]?.trim();
+    let matchedCourseId = '';
+    let isOtherCourse = false;
+
+    const allCourses = Object.values(this.courseOptions).flat();
+    const matched = allCourses.find(opt => opt.id === rawCourseId);
+
+    if (matched) {
+      matchedCourseId = matched.id;
+      isOtherCourse = matched.id === 'Others';
+    } else {
+      matchedCourseId = 'Others';
+      isOtherCourse = true;
+    }
+
+    this.showOtherCourseInput = isOtherCourse;
+
+    const schemeLower = data[11]?.toLowerCase();
+
+    if (schemeLower === 'graduate') {
+      this.durationYears = [
+        { label: '3 Years', id: '3' },
+        { label: '4 Years', id: '4' },
+        { label: '5 Years', id: '5' }
+      ];
       this.studentForm.get('schemeYears')?.enable();
-      } else {
-        this.durationYears = [
-      { label: '1 Year', id: '1' },
-      { label: '2 Years', id: '2' },
-      { label: '3 Years', id: '3' },
-      { label: '4 Years', id: '4' },
-      { label: '5 Years', id: '5' }
-    ];
-    this.studentForm.get('schemeYears')?.enable();
+    } else {
+      this.durationYears = [
+        { label: '1 Year', id: '1' },
+        { label: '2 Years', id: '2' },
+        { label: '3 Years', id: '3' },
+        { label: '4 Years', id: '4' },
+        { label: '5 Years', id: '5' }
+      ];
+      this.studentForm.get('schemeYears')?.enable();
     }
     if (schemeLower === 'graduate') {
       this.currentCourseOptions = this.courseOptions['graduate'];
-       this.currentCourseOptions = [
-      ...this.courseOptions['graduate'], ...this.courseOptions['default']];
-      
-    }  else if (schemeLower === 'under graduate') {
+      this.currentCourseOptions = [
+        ...this.courseOptions['graduate'], ...this.courseOptions['default']];
+    } else if (schemeLower === 'under graduate') {
       this.currentCourseOptions = [...this.courseOptions['default']];
       this.studentForm.get('schemeYears')?.disable();
-    }else if (schemeLower === 'post graduate') {
+    } else if (schemeLower === 'post graduate') {
       this.currentCourseOptions = [
-      ...this.courseOptions['postGraduate'], ...this.courseOptions['default']];
+        ...this.courseOptions['postGraduate'], ...this.courseOptions['default']];
       this.studentForm.get('schemeYears')?.disable();
-    }else if(schemeLower === 'students with special needs' || schemeLower ===  'national/state level achievers'){
-         this.currentCourseOptions = [
-      ...this.courseOptions['graduate'],
-    ...this.courseOptions['postGraduate'], ...this.courseOptions['default']
-    ];
+    } else if (schemeLower === 'students with special needs' || schemeLower === 'national/state level achievers') {
+      this.currentCourseOptions = [
+        ...this.courseOptions['graduate'],
+        ...this.courseOptions['postGraduate'], ...this.courseOptions['default']
+      ];
       this.studentForm.get('schemeYears')?.enable();
     } else {
       this.currentCourseOptions = this.courseOptions['default'];
       this.studentForm.get('schemeYears')?.enable();
     }
 
-      const scheme = data[11];
-      this.special = scheme === 'Students with special needs';
-      this.achiver = scheme === 'National/State Level Achievers';
+    const scheme = data[11];
+    this.special = scheme === 'Students with special needs';
+    this.achiver = scheme === 'National/State Level Achievers';
 
-      setTimeout(() => {
-        this.studentForm.patchValue({
-          childName: data[1] || '',
-          childDob: this.formatDateToDDMMYYYY(data[2]),
-          childGender: genderValue,
-          childMarritalStatus: maritalStatusValue,
-          childEmailId: data[5] || '',
-          childMobile: data[6],
-          childContactNo: data[7],
-          examPassed: data[8] || '',
-          passedYear: this.formatDateToDDMMYYYY(data[9]),
-          firstAttempt: firstAttemptValue,
-          nameOfCollege: data[18] || '',
-          aggregate: data[17] || '',
-          marksType: data[13] || '',
-          schemeApplied: schemeAppliedValue,
-          courseApplied: matchedCourseId,
-          otherCourse: isOtherCourse ? rawCourseId : '',
-          durationOfCourse: durationOfCourseValue,
-          schemeYears: schemeYearsValue
-        });
-
-        if(isOtherCourse){
-          this.studentForm.get('otherCourse')?.setValidators([Validators.required]);
-        }
-        // this.studentForm.get('parentName')?.setValue(data[37] || '');
-        this.studentForm.get('childName')?.enable();
-        this.studentForm.get('childDob')?.enable();
-        this.studentForm.get('childGender')?.enable();
-
-        const attachment3 = this.studentForm.get('attachment3');
-        const attachment4 = this.studentForm.get('attachment4');
-
-        if (this.special) {
-          attachment3?.setValidators([Validators.required]);
-        } else {
-          attachment3?.clearValidators();
-        }
-        attachment3?.updateValueAndValidity();
-
-        if (this.achiver) {
-          attachment4?.setValidators([Validators.required]);
-        } else {
-          attachment4?.clearValidators();
-        }
-        attachment4?.updateValueAndValidity();
+    setTimeout(() => {
+      this.studentForm.patchValue({
+        childName: data[1] || '',
+        childDob: this.formatDateToDDMMYYYY(data[2]),
+        childGender: genderValue,
+        childMarritalStatus: maritalStatusValue,
+        childEmailId: data[5] || '',
+        childMobile: data[6],
+        childContactNo: data[7],
+        examPassed: data[8] || '',
+        passedYear: this.formatDateToDDMMYYYY(data[9]),
+        firstAttempt: firstAttemptValue,
+        nameOfCollege: data[18] || '',
+        aggregate: data[17] || '',
+        marksType: data[13] || '',
+        schemeApplied: schemeAppliedValue,
+        courseApplied: matchedCourseId,
+        otherCourse: isOtherCourse ? rawCourseId : '',
+        durationOfCourse: durationOfCourseValue,
+        schemeYears: schemeYearsValue
       });
 
-      if (data[13] === 'normal') {
-        setTimeout(() => {
-          this.studentForm.patchValue({
-            marksObtained: data[14] || '',
-            marksTotal: data[15] || '',
-          });
-        });
-      } else {
-        setTimeout(() => {
-          this.studentForm.patchValue({
-            cgpaA: data[14] || '',
-            cgpaB: data[15] || '',
-          });
-        });
+      if (isOtherCourse) {
+        this.studentForm.get('otherCourse')?.setValidators([Validators.required]);
       }
 
-      this.applicationID = data[0];
-      this.status = data[30];
-       const filePromises: Promise<void>[] = [];
-    
-      const attachmentPrefills: {
-        key: 'attachment1' | 'attachment2' | 'attachment3' | 'attachment4';
-        fileName: string | null;
-        
-        condition?: boolean;
-      }[] = [
-          { key: 'attachment1', fileName: data[23] },
-          { key: 'attachment2', fileName: data[24] },
-          { key: 'attachment3', fileName: data[25], condition: this.special },
-          { key: 'attachment4', fileName: data[38], condition: this.achiver },
-        ];
+      this.studentForm.get('childName')?.enable();
+      this.studentForm.get('childDob')?.enable();
+      this.studentForm.get('childGender')?.enable();
 
-      attachmentPrefills.forEach(({ key, fileName, condition }) => {
-        
-        if (fileName && (condition === undefined || condition)) {
-          this.studentForm.get(key)?.setValue(fileName);
-          this.studentForm.get(key)?.setErrors(null);
-          this.removeFiles[key] = fileName;
-          console.log(this.studentForm.get(key)?.getRawValue());
-        }
-        
+      const attachment3 = this.studentForm.get('attachment3');
+      const attachment4 = this.studentForm.get('attachment4');
+
+      if (this.special) {
+        attachment3?.setValidators([Validators.required]);
+      } else {
+        attachment3?.clearValidators();
+      }
+      attachment3?.updateValueAndValidity();
+
+      if (this.achiver) {
+        attachment4?.setValidators([Validators.required]);
+      } else {
+        attachment4?.clearValidators();
+      }
+      attachment4?.updateValueAndValidity();
+    });
+
+    if (data[13] === 'normal') {
+      setTimeout(() => {
+        this.studentForm.patchValue({
+          marksObtained: data[14] || '',
+          marksTotal: data[15] || '',
+        });
       });
-
-
-      Promise.all(filePromises).then(() => {
-        console.log('✅ All attachments populated.');
+    } else {
+      setTimeout(() => {
+        this.studentForm.patchValue({
+          cgpaA: data[14] || '',
+          cgpaB: data[15] || '',
+        });
       });
-      // this.prefillAttachments(data);
     }
+
+    this.applicationID = data[0];
+    this.status = data[30];
+    const filePromises: Promise<void>[] = [];
+
+    const attachmentPrefills: {
+      key: 'attachment1' | 'attachment2' | 'attachment3' | 'attachment4';
+      fileName: string | null;
+
+      condition?: boolean;
+    }[] = [
+        { key: 'attachment1', fileName: data[23] },
+        { key: 'attachment2', fileName: data[24] },
+        { key: 'attachment3', fileName: data[25], condition: this.special },
+        { key: 'attachment4', fileName: data[38], condition: this.achiver },
+      ];
+
+    attachmentPrefills.forEach(({ key, fileName, condition }) => {
+
+      if (fileName && (condition === undefined || condition)) {
+        this.studentForm.get(key)?.setValue(fileName);
+        this.studentForm.get(key)?.setErrors(null);
+        this.removeFiles[key] = fileName;
+        console.log(this.studentForm.get(key)?.getRawValue());
+      }
+
+    });
+
+
+    Promise.all(filePromises).then(() => {
+      console.log('✅ All attachments populated.');
+    });
+    // this.prefillAttachments(data);
   }
-
-
+}
 
 //   prefillAttachments = async (data: any[]): Promise<void> => {
 //   const attachmentPrefills: {
@@ -829,7 +1224,7 @@ showOtherCourseInput: boolean = false;
 // }
 
   graduate3YearCourses = ['B.Com', 'B.Sc.', 'B.A.', 'BBA', 'BMS', 'Bachelor in Mass Media', 'Bachelor in Home Science'];
-  graduate4YearCourses = ['B.D.S.', 'B. Pharm.', 'B.E.', 'B. Tech.', 'Batchlor of Textile.', 'B. Chem. Eng.'];
+  graduate4YearCourses = ['B.D.S.', 'B. Pharm.', 'B.E.', 'B. Tech.', 'B. Textile.', 'B. Chem. Eng.'];
   graduate5YearCourses = ['B.Arch.', 'B.A. LLB', 'M.B.B.S.', 'B.A.M.S.', 'B.H.M.S.'];
   availableDurations: { label: string; id: string }[] = [];
   availableYears: { label: string; id: string }[] = [];
@@ -1022,60 +1417,14 @@ showOtherCourseInput: boolean = false;
     return found?.id || '';
   }
 
-// onFileChange(event: { file: File | null }, controlName: string) {
-//   const { file } = event;
-//   const control = this.studentForm.get(controlName);
-//   control?.setErrors(null);
-//   if (!control) return;
-
-//   if (!file) {
-//     control.setValue(null);
-//     control.setErrors({ uploadFailed: true });
-//     delete this.selectedFiles[controlName];
-//     return;
-//   }
-
-//   this.selectedFiles[controlName] = file;
-//   this.removeFiles[controlName] = file.name;
-
-//   this.loader.show();
-
-//   Promise.resolve().then(() => {
-//     this.api.uploadAttachments(this.selectedFiles, this.applicationID).subscribe({
-//       next: (res) => {
-//         if (res.success === true) {
-//           this.loader.hide();
-//           this.dialog.alert(res.message, 'CONFIRMATION');
-//           control.setValue(file.name);
-//           control.setErrors(null);
-//           control.markAsTouched();
-//           control.updateValueAndValidity();
-//         } else {
-//           this.loader.hide();
-//           this.dialog.alert(res.message);
-//           control.setValue(null);
-//           delete this.selectedFiles[controlName];
-//         }
-//       },
-//       error: (err) => {
-//         console.error('File upload failed:', err.message);
-//         this.loader.hide();
-//         this.dialog.alert('File upload failed. Please try again.');
-
-//         control.setValue(null);
-//         delete this.selectedFiles[controlName];
-//       }
-//     });
-//   });
-
-//   this.selectedFiles = {};
-// }
 onFileChange(event: { file: File | null }, controlName: string) {
+  debugger
   const { file } = event;
   this.selectedFiles = {};
   const control = this.studentForm.get(controlName);
   control?.setErrors(null);
   if (!control) return;
+
   if (!file) {
     control.setValue(null);
     control.setErrors({ required: true, uploadFailed: true });
@@ -1083,42 +1432,78 @@ onFileChange(event: { file: File | null }, controlName: string) {
     return;
   }
 
-    if (
-      control &&
-      control.enabled &&
-      !control.value &&
-      control.errors?.['uploadFailed'] !== true
-    ) {
-      control.setErrors({ ...(control.errors || {}), uploadFailed: true });
-      control.markAsTouched();
-    }
-
-  // ✅ Keep only the most recent file
   this.selectedFiles = { [controlName]: file };
-  console.log(this.selectedFiles);
-  this.removeFiles[controlName] = file.name;
-  this.loader.show();
+  // control.setValue(file);
 
+  this.loader.show();
+  //local dev
+// if(file){
+//     control.setValue(file);
+//           control.setErrors(null);
+//           control.markAsTouched();
+//   } else {
+//      control.setErrors({ required: true, uploadFailed: true });
+//           control.setValue(null);
+//           control.updateValueAndValidity();
+//           delete this.selectedFiles[controlName];
+//   }
+//for prod build
   Promise.resolve().then(() => {
     this.api.uploadAttachments(this.selectedFiles, this.applicationID).subscribe({
-      
       next: (res) => {
         this.loader.hide();
         if (res.success === true) {
-          this.dialog.alert(res.message, 'CONFIRMATION');
-          control.setValue(file.name);
-          control.setErrors(null);
-          control.markAsTouched();
-          control.updateValueAndValidity();
+          this.dialog.alert(res.message, 'CONFIRMATION').then(() => {
+            if (this.removeFiles[controlName] && this.flag !== 'edit') {
+              const fileName = this.removeFiles[controlName];
+              const encodedFileName = btoa(fileName);
+              const body = new URLSearchParams();
+              body.set('fileName', encodedFileName);
+              body.set('type', '');
+              body.set('applicationID', this.applicationID);
+              body.set('flag', controlName.toUpperCase());
+              this.api.deleteFile(body).subscribe({
+                next: (res) => {
+                  console.log(`✅ Previous File '${fileName}' deleted from server`);
+                  delete this.removeFiles[controlName];
+                  this.dialog.alert(res.message);
+                },
+                error: () => {
+                  this.dialog.alert('Failed to remove Previous file from server.');
+                }
+              });
+            }
+            if (this.flag === 'edit' && this.removeFiles[controlName]) {
+              if (!this.onupdateRemovedfile[controlName]) {
+                this.onupdateRemovedfile[controlName] = [];
+              }
+              this.onupdateRemovedfile[controlName].push(this.removeFiles[controlName]);
+              delete this.removeFiles[controlName];
+            }
+          }).then(() => {
+            this.removeFiles[controlName] = file.name;
+            control.setErrors(null);
+            control.markAsTouched();
+            control.updateValueAndValidity();
+          });
         } else {
-          this.dialog.alert(res.message);
-          control.setErrors({ required: true, uploadFailed: true });
-          control.setValue(null);
-          delete this.selectedFiles[controlName];
+          if (this.removeFiles[controlName]) {
+            this.dialog.alert(res.message).then(() => {
+              // ✅ Restore File object if upload fails
+              control?.setValue(this.removeFiles[controlName]);
+              control?.setErrors(null);
+              control.markAsTouched();
+              control.updateValueAndValidity();
+            });
+          } else {
+            this.dialog.alert(res.message);
+            control.setErrors({ required: true, uploadFailed: true });
+            control.setValue(null);
+            delete this.selectedFiles[controlName];
+          }
         }
       },
       error: (err) => {
-        console.log(this.selectedFiles);
         console.error('File upload failed:', err.message);
         this.loader.hide();
         this.dialog.alert('File upload failed. Please try again.');
@@ -1128,53 +1513,122 @@ onFileChange(event: { file: File | null }, controlName: string) {
       }
     });
   });
-
+}
+onRemove(controlName: any) {
+  debugger
+if (this.flag === 'edit') {
+// Ensure array exists
+if (!this.onupdateRemovedfile[controlName]) {
+  this.onupdateRemovedfile[controlName] = [];
 }
 
+// Push into array (if removeFiles[controlName] is a string → wrap in array)
+const filesToRemove = Array.isArray(this.removeFiles[controlName])
+  ? this.removeFiles[controlName]
+  : [this.removeFiles[controlName]];
 
-  onRemove(controlName: any) {
+this.onupdateRemovedfile[controlName] = [
+...new Set([...(this.onupdateRemovedfile[controlName] || []), ...filesToRemove])
+];
 
-    const fileName = this.removeFiles[controlName];
-    console.log(fileName);
-    if (!fileName) {
-      console.warn('No file name found for control:', controlName);
-      return;
+
+// Cleanup removeFiles entry
+delete this.removeFiles[controlName];
+
+// Reset form control
+const control = this.studentForm.get(controlName);
+control?.setValue(null);
+control?.setErrors({ required: true, uploadFailed: true });
+return;
+}
+
+  const fileName = this.removeFiles[controlName];
+  console.log(fileName);
+  if (!fileName) {
+    console.warn('No file name found for control:', controlName);
+    return;
+  }
+
+  const encodedFileName = btoa(fileName);
+  const body = new URLSearchParams();
+  body.set('fileName', encodedFileName);
+  body.set('type', '');
+  body.set('applicationID', this.applicationID);
+  body.set('flag', controlName.toUpperCase());
+  Promise.resolve().then(() => {
+  this.api.deleteFile(body).subscribe({
+    next: (res) => {
+      console.log(`✅ File '${fileName}' deleted from server`);
+      this.studentForm.get(controlName)?.setValue(null);
+      this.studentForm.get(controlName)?.setErrors({ required: true, uploadFailed: true });
+      delete this.removeFiles[controlName];
+      this.dialog.alert(res.message);
+    },
+    error: (err) => {
+      this.studentForm.get(controlName)?.setValue(this.removeFiles[controlName]);
+      this.studentForm.get(controlName)?.setErrors(null);
+      console.error('❌ Error deleting file:', err);
+      this.dialog.alert('Failed to delete file from server. ');
     }
-
-    const encodedFileName = btoa(fileName);
-
-    const body = new URLSearchParams();
-    body.set('fileName', encodedFileName);
-    body.set('type', '');
-    body.set('applicationID', this.applicationID);
-    body.set('flag', controlName.toUpperCase());
-    Promise.resolve().then(() => {
-    this.api.deleteFile(body).subscribe({
-      next: (res) => {
-        console.log(`✅ File '${fileName}' deleted from server`);
-        this.studentForm.get(controlName)?.setValue(null);
-        this.studentForm.get(controlName)?.setErrors({ required: true, uploadFailed: true });
-        delete this.removeFiles[controlName];
-        this.dialog.alert(res.message);
-      },
-      error: (err) => {
-        console.error('❌ Error deleting file:', err);
-        this.dialog.alert('Failed to remove file from server.');
+  });
+  });
+}
+onFileDownload(event: { fileName: string; controlName: string }) {
+  console.log('Download triggered:', event);
+  
+  this.api.downloadFile(event.fileName, '', this.applicationID).subscribe({
+    next: (res: HttpResponse<Blob>) => {
+      const blob = res.body;
+      if (!blob || blob.size === 0) {
+        this.dialog.alert('File not found.');
+        return;
       }
-    });
-    });
-  }
 
-  async downloadAndConvertFile(fileName: string): Promise<File | null> {
-    try {
-      const blob = await this.api.downloadFile(fileName).toPromise();
-      if (!blob) return null;
-      return new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
-    } catch (err) {
-      console.error(`Failed to download ${fileName}`, err);
-      return null;
+      // ✅ Detect JSON error (server returned error instead of file)
+      if (blob.type === 'application/json' || blob.type.startsWith('text/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const errorJson = JSON.parse(reader.result as string);
+            console.error('API Error:', errorJson);
+            this.dialog.alert(errorJson.message || 'Failed to download the file.');
+          } catch {
+            this.dialog.alert('Unexpected error while downloading the file.');
+          }
+        };
+        reader.readAsText(blob);
+        return; // ⛔ stop here, DO NOT download
+      }
+
+      // ✅ If it’s a real file, download it
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      // use provided name or fallback
+      a.download = event.fileName || `file_${Date.now()}`;
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+      console.log('File downloaded:', event.fileName);
+    },
+    error: (err) => {
+      console.error('Download failed:', err);
+      this.dialog.alert('Failed to download the file. Please try again.');
     }
-  }
+  });
+}
+
+  // async downloadAndConvertFile(fileName: string): Promise<File | null> {
+  //   try {
+  //     const blob = await this.api.downloadFile(fileName).toPromise();
+  //     if (!blob) return null;
+  //     return new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+  //   } catch (err) {
+  //     console.error(`Failed to download ${fileName}`, err);
+  //     return null;
+  //   }
+  // }
 
   formatDateToDDMMYYYY(dateStr: string): string {
     if (!dateStr) return '';
@@ -1277,7 +1731,7 @@ onFileChange(event: { file: File | null }, controlName: string) {
     if (resultControl?.hasError('outOfRange')) {
       resultControl.setErrors(null);
     }
-
+    this.removeFiles = {};
     this.studentForm.get('childName')?.enable();
     this.studentForm.get('childDob')?.enable();
     this.studentForm.get('childGender')?.enable();
@@ -1294,8 +1748,16 @@ onFileChange(event: { file: File | null }, controlName: string) {
     this.achiver = false;
   }
 
-  onBack(): void {
-    this.location.back();
-  }
+onBack(): void {
+  debugger
+  this.dialog.confirm('Any unsaved changes will be lost. Do you want to go back?', 'CONFIRMATION')
+    .then(result => {
+      if (result) {
+        this.onReset();
+        this.router.navigate(['/check-status']);
+      }
+    });
+}
+
 }
 

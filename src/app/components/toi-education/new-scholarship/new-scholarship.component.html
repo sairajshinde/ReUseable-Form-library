@@ -10,7 +10,7 @@
       <h5 class="text-center">INFORMATION OF THE STUDENT</h5>
     </div>
   </div>
-
+@if (enableScholarUI) {
 <form [formGroup]="studentForm" (ngSubmit)="onSubmit()" style="margin: 30px 0px 30px 40px;">
   <div libDynamicRow>
     <input libText [libLabelText]="['#000', 'Name of the Student']" libUiUnderline libRequired formControlName="childName" maxlength="100"/>
@@ -196,7 +196,7 @@
         (studentForm.get('cgpaB')?.touched || studentForm.get('cgpaB')?.dirty)
       "
     >
-      Maximum Marks cannot be zero.
+      Maximum CGPA cannot be zero.
     </div>
     <div
       class="errorMsg"
@@ -226,7 +226,7 @@
     <div>
       <select [libSelect]="currentCourseOptions" [libLabelText]="['#000', 'Course applied for']" libRequired formControlName="courseApplied" (change)="onCourseChange($event)"></select>
       <input *ngIf="showOtherCourseInput" libText placeholder="Enter Course Name" formControlName="otherCourse" libUiUnderline maxlength="100"/>
-       <div class="errorMsg" style="margin: 6px 0;" *ngIf="studentForm.get('otherCourse')?.errors?.['required'] 
+       <div class="errorMsg" style="margin: 6px 0;" *ngIf="showOtherCourseInput && studentForm.get('otherCourse')?.errors?.['required'] 
             && studentForm.get('otherCourse')?.touched">
         Please fill this required field
         </div>
@@ -246,6 +246,7 @@
       [libLabelText]="['#000', 'Student Marksheet - Class X/XII/Degree']" 
       formControlName="attachment1" 
       (fileSelected)="onFileChange($event, 'attachment1')" 
+      (fileDownload)="onFileDownload($event)"
       (fileCleared)="onRemove('attachment1')" />
      
       </div>
@@ -257,22 +258,23 @@
       [allowedExtensions]="['.svg', '.pdf', '.jpg' , '.jpeg', '.png']"
        [libLabelText]="['#000', 'Letter of Admission from the institute OR Receipt of fees Paid']" formControlName="attachment2" 
       (fileSelected)="onFileChange($event, 'attachment2')"
+      (fileDownload)="onFileDownload($event)"
       (fileCleared)="onRemove('attachment2')" />
   
       </div>
       
 
     <div *ngIf="special">
-         <input libFileupload class="textBlack" [allowedExtensions]="['.svg', '.pdf', '.jpg' , '.jpeg', '.png']" [libLabelText]="['#000', 'Special Student supporting document']" formControlName="attachment3" (fileSelected)="onFileChange($event, 'attachment3')" (fileCleared)="onRemove('attachment3')"/>
-           <div class="errorMsg" *ngIf="studentForm.get('attachment3')?.errors?.['required'] 
-            && studentForm.get('attachment3')?.touched && studentForm.get('attachment3')?.value">
+         <input libFileupload class="textBlack" [allowedExtensions]="['.svg', '.pdf', '.jpg' , '.jpeg', '.png']" [libLabelText]="['#000', 'Special Student supporting document']" formControlName="attachment3" (fileSelected)="onFileChange($event, 'attachment3')" (fileDownload)="onFileDownload($event)" (fileCleared)="onRemove('attachment3')"/>
+           <div class="errorMsg" *ngIf="special 
+            && studentForm.get('attachment3')?.touched && studentForm.get('attachment3')?.value && studentForm.get('attachment3')?.errors?.['required'] || studentForm.get('attachment3')?.errors?.['uploadFailed'] ">
         Please fill this required field
       </div>
     </div>
     <div *ngIf="achiver">
-      <input libFileupload class="textBlack" [allowedExtensions]="['.svg', '.pdf', '.jpg' , '.jpeg', '.png']" [libLabelText]="['#000', 'National / State Level Achievement Certificate']" formControlName="attachment4" (fileSelected)="onFileChange($event, 'attachment4')" (fileCleared)="onRemove('attachment4')"/>
-         <div class="errorMsg" *ngIf="studentForm.get('attachment4')?.errors?.['required'] 
-            && studentForm.get('attachment4')?.touched && studentForm.get('attachment4')?.value">
+      <input libFileupload class="textBlack" [allowedExtensions]="['.svg', '.pdf', '.jpg' , '.jpeg', '.png']" [libLabelText]="['#000', 'National / State Level Achievement Certificate']" formControlName="attachment4" (fileSelected)="onFileChange($event, 'attachment4')" (fileDownload)="onFileDownload($event)" (fileCleared)="onRemove('attachment4')"/>
+         <div class="errorMsg" *ngIf="achiver 
+            && studentForm.get('attachment4')?.touched && studentForm.get('attachment4')?.value && studentForm.get('attachment4')?.errors?.['required'] || studentForm.get('attachment4')?.errors?.['uploadFailed']">
         Please fill this required field
       </div>
     </div>
@@ -289,10 +291,18 @@
 
   <div>
     <button type="submit" libPrimaryButton="center,UPDATE" *ngIf="flag === 'edit'"></button>
-    <button type="button" libPrimaryButton="center,BACK" *ngIf="flag === 'edit'" (click)="onReset();onBack();"></button>
+    <button type="button" libPrimaryButton="center,BACK" *ngIf="flag === 'edit'" (click)="onBack()"></button>
     <button type="submit" libPrimaryButton="center,SUBMIT" *ngIf="flag !== 'edit'" ></button>
     <button type="button" libPrimaryButton="center,RESET" (click)="onReset()" *ngIf="flag !== 'edit'">RESET</button>
   </div>
 </form>
+} @else {
+  <div class="container">
+	<div style="padding-top: 100px; height: calc( 99vh - 162px);text-align: center;font-size: 18px;">
+		{{Msg}}
+	</div>
+</div>
+}
+
 
 <router-outlet></router-outlet>

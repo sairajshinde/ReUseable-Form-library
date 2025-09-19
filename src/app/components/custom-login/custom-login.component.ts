@@ -27,7 +27,7 @@ export class CustomLoginComponent implements OnInit {
   }
 
   initializeLoginFlow(): void {
-    sessionStorage.removeItem('reference');
+    this.common.clearAuthDATA();
 
     this.route.queryParams.subscribe(params => {
       // 🔐 You will replace this when you get tdata from live:
@@ -38,7 +38,7 @@ export class CustomLoginComponent implements OnInit {
       const emailId = tempData.usr_email;
 
       // 🔄 For now (static testing):
-      // const emailId = 'shreedhar.godbole@timesgroup.com';
+      // const emailId = 'jayant.anantpurkar@timesgroup.com';
       // const reference = 'timescape';
       // const appInfo = 'scholarship';
 
@@ -70,14 +70,16 @@ customLogin(emailId: string, appInfo: string): void {
     next: (response) => {
       console.log('Login API Response:', response);
 
-      if (response[0]?.status === "success" && response[0].data1 && appInfo) {
+      if (response?.status === "success" && appInfo) {
         // Store token headers if needed
-        const authToken = response[0].token;
+        const authToken = response.token;
+        
         if (authToken) {
           sessionStorage.setItem('authToken', authToken);
+          localStorage.setItem('authToken', authToken);
         }
         try {
-          const data =  response[0].data;
+          const data =  response.data;
           console.log('Employee Data:', data);
           this.common.employeedetails(data)
           // ✅ Store data in session and proceed

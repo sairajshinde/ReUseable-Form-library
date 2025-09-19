@@ -1,13 +1,19 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterModule, Router } from '@angular/router';
-import { UiDirectivesModule } from '../../../../../projects/bccl-library/src/public-api';
-import { getSharedMenu, setPopupService, MenuItem } from '../../../services/shared/menu.config';
+import { FileuploadDirective, UiDirectivesModule } from '../../../../../projects/bccl-library/src/public-api';
+import { getSharedMenu, setPopupService, MenuItem, initMenu } from '../../../services/shared/menu.config';
 import { PopupService } from '../../../services/shared/popup.service';
 import { ApiService } from '../../../services/api.service';
-import { HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
 import { LoaderService } from '../../../services/shared/loader.service';
 import { CommonDialogService } from '../../../services/shared/common-dialog.service';
+import { environment } from '../../../../environments/environment';
+import { publicApi } from '../../../services/publicApi/publicApi';
+import { CommonService } from '../../../services/shared/common.service';
+import {FormBuilder, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 declare var bootstrap: any;
 
 @Component({
@@ -17,7 +23,8 @@ declare var bootstrap: any;
     UiDirectivesModule,
     RouterOutlet,
     RouterModule,
-    CommonModule
+    CommonModule,
+    ReactiveFormsModule
   ],
   templateUrl: './check-status.component.html',
   styleUrl: './check-status.component.scss'
@@ -25,7 +32,11 @@ declare var bootstrap: any;
 export class CheckStatusComponent implements OnInit {
   menu: MenuItem[] = [];
   tableData: any[] = [];
+  today = new Date();
+  studentForm: FormGroup;
+  applicationID:any;
   selectedStudentDetails: any = {};
+  @ViewChild(FileuploadDirective) fileuploadDirective!: FileuploadDirective;
   tableColumns = [
     {key: 'studentId', label: 'Student ID',  isLink: true},
     { key: 'childName', label: 'Name' },
@@ -60,12 +71,19 @@ fieldList = [
   { key: 'doc4', label: 'National / State Level Achievement Certificate' }
 ];
 
-  constructor(private dialog: CommonDialogService, private popupService: PopupService, private api: ApiService, public router: Router, private loader: LoaderService) {}
+   constructor(private fb: FormBuilder, private dialog: CommonDialogService, private common: CommonService, private popupService: PopupService, private api: ApiService, public router: Router, private loader: LoaderService) {
+        this.studentForm = this.fb.group({
+          cheque: [null, Validators.required],
+        });
+    }
 
   ngOnInit(): void {
-    setPopupService(this.popupService);
-    this.menu = getSharedMenu();
+    this.onReset();
+  initMenu(this.common);
+  setPopupService(this.popupService);
+  this.menu = getSharedMenu();
     this.fetchStudentData();
+    
   }
 
   fetchStudentData() {
@@ -75,10 +93,9 @@ fieldList = [
     this.api.getDetailsByTOID().subscribe({
       next: (res) => {
         console.log('res', res)
-        const rawData = res?.[0]?.data || [];
+        const rawData = res?.[0]?.data || []; 
         this.tableData = rawData.map((item: any[]) => {
           const statusLabel = this.mapStatus(item[30]);
-          this.loader.hide();
           return {
             studentId: this.getStudentLink(item[0], item),
             childName: item[1],
@@ -89,6 +106,7 @@ fieldList = [
             rawData: item
           };
         });
+        this.loader.hide();
       },
       error: (err) => {
         this.loader.hide();
@@ -139,31 +157,32 @@ fieldList = [
       label: 'Upload Cheque',
       tooltip: 'Upload Cheque',
       callback: () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.pdf,.jpg,.jpeg,.png';
-        input.style.display = 'none';
+        this.showChequeModal(student);
+        // const input = document.createElement('input');
+        // input.type = 'file';
+        // input.accept = '.pdf,.jpg,.jpeg,.png';
+        // input.style.display = 'none';
 
-        input.addEventListener('change', (event: any) => {
-          const file: File = event.target.files[0];
-          const maxSize = 10 * 1024 * 1024; // 10MB
+        // input.addEventListener('change', (event: any) => {
+        //   const file: File = event.target.files[0];
+        //   const maxSize = 10 * 1024 * 1024; // 10MB
 
-          if (file) {
-            if (file.size > maxSize) {
-              this.dialog.alert('File size must not exceed 10MB. Please upload a smaller file.');
-              return;
-            }
+        //   if (file) {
+        //     if (file.size > maxSize) {
+        //       this.dialog.alert('File size must not exceed 10MB. Please upload a smaller file.');
+        //       return;
+        //     }
 
-            this.uploadCheque(student, file);
-          }
-        });
+        //     this.uploadCheque(student, file);
+        //   }
+        // });
 
-        document.body.appendChild(input);
-        input.click();
+        // document.body.appendChild(input);
+        // input.click();
 
-        input.addEventListener('click', () => {
-          setTimeout(() => document.body.removeChild(input), 1000);
-        });
+        // input.addEventListener('click', () => {
+        //   setTimeout(() => document.body.removeChild(input), 1000);
+        // });
       }
     });
   }
@@ -213,7 +232,8 @@ fieldList = [
     const selectedFiles: { [key: string]: File } = {};
     if (file) {
       selectedFiles['cheque'] = file;
-      this.api.uploadAttachments(selectedFiles).subscribe({
+      const applicationID = student[0];
+      this.api.uploadAttachments(selectedFiles, applicationID).subscribe({
         next: (res) => {
           console.log('Files uploaded:', res);
           this.dialog.alert('File uploaded successfully', 'CONFIRMATION');
@@ -233,9 +253,8 @@ fieldList = [
     body.set('category', student[37]);
     body.set('exam', student[8]);
 
-    this.dialog.alert(`Downloading Certificate for: ${student[1]}`);
-
-    this.api.downloadCertificate(body).subscribe({
+    this.dialog.alert(`Downloading Certificate for: ${student[1]}`).then(()=>{
+          this.api.downloadCertificate(body).subscribe({
       next: (blob: Blob) => {
         const a = document.createElement('a');
         const objectUrl = URL.createObjectURL(blob);
@@ -249,6 +268,9 @@ fieldList = [
         this.dialog.alert('Failed to download certificate.');
       }
     });
+    })
+
+
   }
 
   continueScholarship(student: any) {
@@ -257,9 +279,343 @@ fieldList = [
     });
   }
 
+private triggerDownload(blob: Blob, fileName: string) {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  setTimeout(() => window.URL.revokeObjectURL(url), 100);
+}
+downloadDocument(fileName: string, type: string = '', applicationId: string = ''): void {
+  if (!fileName) return;
+
+  this.api.downloadFile(fileName, type, applicationId).subscribe({
+    next: (res: HttpResponse<Blob>) => {
+      const blob = res.body;
+
+      if (!blob || blob.size === 0) {
+        this.dialog.alert('File not found or empty.');
+        return;
+      }
+
+      // 🔹 Try parsing blob as JSON (covers cases where server sends application/octet-stream with error object)
+      const tryParseAsJson = (blob: Blob) => {
+        return new Promise<any>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              resolve(JSON.parse(reader.result as string));
+            } catch {
+              reject();
+            }
+          };
+          reader.onerror = () => reject();
+          reader.readAsText(blob);
+        });
+      };
+
+      tryParseAsJson(blob)
+        .then((json) => {
+          // ✅ It's JSON → handle success/failure
+          if (json && json.success === false) {
+            this.dialog.alert(json.message || 'File not found.');
+            return;
+          }
+
+          // If JSON but valid success = true with file info → fallback to file download
+          this.triggerDownload(blob, fileName);
+        })
+        .catch(() => {
+          // ❌ Not JSON → treat as real file
+          this.triggerDownload(blob, fileName);
+        });
+    },
+    error: (err) => {
+      console.error('Download failed:', err);
+      this.dialog.alert('Failed to download the file. Please try again.');
+    }
+  });
+}
+downloadCheque(applicationID: any): void {
+  const type = "attach";
+
+  this.api.downloadFile("", type, applicationID).subscribe({
+    next: (response) => {
+      const blob = response.body!;
+      if (!blob || blob.size === 0) {
+        this.studentForm.get('cheque')?.setValue(null);
+        this.dialog.alert('File not found or empty.');
+        return;
+      }
+      console.log(this.studentForm.get('cheque')?.value)
+       const tryParseAsJson = (blob: Blob) => {
+        return new Promise<any>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              resolve(JSON.parse(reader.result as string));
+            } catch {
+              reject();
+            }
+          };
+          reader.onerror = () => reject();
+          reader.readAsText(blob);
+        });
+      };
+            tryParseAsJson(blob)
+        .then((json) => {
+          // ✅ It's JSON → handle success/failure
+          if (json && json.success === false) {
+            this.studentForm.get('cheque')?.setValue(null);
+            return;
+          }
+
+          // If JSON but valid success = true with file info → fallback to file download
+           this.patchFileFromBlob(blob, response);
+        })
+        .catch(() => {
+          // ❌ Not JSON → treat as real file
+           this.patchFileFromBlob(blob, response);
+        });
+    },
+    error: (err) => {
+      this.studentForm.get('cheque')?.setValue(null);
+      this.studentForm.get('cheque')?.updateValueAndValidity();
+   
+    }
+  });
+}
+
+/**
+ * Helper method to extract filename and patch file into form
+ */
+private patchFileFromBlob(blob: Blob, response: any) {
+  // 🔹 Extract filename
+  let filename = "";
+  debugger
+  const headerFilename = response.headers.get("X-Filename");
+  const contentDisposition = response.headers.get("Content-Disposition");
+  if (headerFilename) {
+    filename = headerFilename.trim();
+  } else if (contentDisposition) {
+    const match = /filename="?([^"]+)"?/.exec(contentDisposition);
+    if (match && match[1]) filename = match[1];
+  }
+
+  // 🔹 Create file object
+  const file = new File([blob], filename, { type: blob.type || "application/pdf" });
+
+  // 🔹 Patch actual file into form control
+  this.studentForm.patchValue({ cheque: filename });
+  this.studentForm.get('cheque')?.updateValueAndValidity();
+  this.removeFiles['cheque'] = filename;
+  console.log("Cheque file patched into form:", file);
+}
+
+
+
+  showChequeModal(student:any): void {
+    this.studentForm.get('cheque')?.setValue(null);
+    this.applicationID = student[0];
+      const modalElement = document.getElementById('ChequeModal');
+    if (modalElement) {
+      const modal = new bootstrap.Modal(modalElement);
+      modal.show();
+    }
+    this.downloadCheque(this.applicationID)
+
+}
+
+selectedFiles: { [key: string]: File } = {};
+removeFiles: { [key: string]: string } = {};
+
+onFileChange(event: { file: File | null }, controlName: string) {
+  debugger
+  const { file } = event;
+  this.selectedFiles = {};
+  const control = this.studentForm.get(controlName);
+  control?.setErrors(null);
+  if (!control) return;
+
+  if (!file) {
+    control.setValue(null);
+    control.setErrors({ required: true, uploadFailed: true });
+    delete this.selectedFiles[controlName];
+    return;
+  }
+
+  // ✅ Store the actual File object, not just file.name
+  this.selectedFiles = { [controlName]: file };
+  control.setValue(file.name);
+
+  this.loader.show();
+// if(file){
+//     control.setValue(file);
+//           control.setErrors(null);
+//           control.markAsTouched();
+//   } else {
+//      control.setErrors({ required: true, uploadFailed: true });
+//           control.setValue(null);
+//           control.updateValueAndValidity();
+//           delete this.selectedFiles[controlName];
+//   }
+  Promise.resolve().then(() => {
+    this.api.uploadAttachments(this.selectedFiles, this.applicationID).subscribe({
+      next: (res) => {
+        this.loader.hide();
+        if (res.success === true) {
+          this.dialog.alert(res.message, 'CONFIRMATION').then(() => {
+            if (this.removeFiles[controlName]) {
+              const fileName = this.removeFiles[controlName];
+              const encodedFileName = btoa(fileName);
+              const body = new URLSearchParams();
+              body.set('fileName', encodedFileName);
+              body.set('type', '');
+              body.set('applicationID', this.applicationID);
+              body.set('flag', controlName.toUpperCase());
+              this.api.deleteFile(body).subscribe({
+                next: (res) => {
+                  console.log(`✅ Previous File '${fileName}' deleted from server`);
+                  delete this.removeFiles[controlName];
+                  this.dialog.alert(res.message);
+                },
+                error: () => {
+                  this.dialog.alert('Failed to remove Previous file from server.');
+                }
+              });
+            }
+         
+          }).then(() => {
+            this.removeFiles[controlName] = file.name;
+            control.setErrors(null);
+            control.markAsTouched();
+            control.updateValueAndValidity();
+          });
+        } else {
+          if (this.removeFiles[controlName]) {
+            this.dialog.alert(res.message).then(() => {
+              // ✅ Restore File object if upload fails
+              control?.setValue(this.removeFiles[controlName]);
+              control?.setErrors(null);
+              control.markAsTouched();
+              control.updateValueAndValidity();
+            });
+          } else {
+            this.dialog.alert(res.message);
+            control.setErrors({ required: true, uploadFailed: true });
+            control.setValue(null);
+            delete this.selectedFiles[controlName];
+          }
+        }
+      },
+      error: (err) => {
+        console.error('File upload failed:', err.message);
+        this.loader.hide();
+        this.dialog.alert('File upload failed. Please try again.');
+        control.setErrors({ required: true, uploadFailed: true });
+        control.setValue(null);
+        delete this.selectedFiles[controlName];
+      }
+    });
+  });
+}
+
+onRemove(controlName: any) {
+  const fileName = this.removeFiles[controlName];
+  const control = this.studentForm.get(controlName);
+  console.log(fileName);
+  if (!fileName) {
+    console.warn('No file name found for control:', controlName);
+    return;
+  }
+  this.dialog.confirm(`Do you want to delete the uploaded cheque?`, 'CONFIRMATION')
+    .then(result => {
+      if (result) {
+
+   control?.setValue(null);
+        delete this.removeFiles[controlName];
+
+        // ✅ Trigger real hidden input inside directive
+        this.fileuploadDirective.openFileChooser();
+      }
+      else{
+        control?.setValue(this.removeFiles[controlName])
+      }
+    });
+  
+}
+
+onFileDownload(event: { fileName: string; controlName: string }) {
+  let type = "attach";
+  console.log('Download triggered:', event);
+
+  this.api.downloadFile(event.fileName, type, this.applicationID).subscribe({
+    next: (res: HttpResponse<Blob>) => {
+          const blob = res.body;
+      if (!blob || blob.size === 0) {
+        this.dialog.alert('File not found.');
+        return;
+      }
+
+      // ✅ Detect JSON error (server returned error instead of file)
+      if (blob.type === 'application/json' || blob.type.startsWith('text/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const errorJson = JSON.parse(reader.result as string);
+            console.error('API Error:', errorJson);
+            this.dialog.alert(errorJson.message.trim() || 'Failed to download the file.');
+          } catch {
+            this.dialog.alert('Unexpected error while downloading the file.');
+          }
+        };
+        reader.readAsText(blob);
+        return; // ⛔ stop here, DO NOT download
+      }
+
+      // ✅ If it’s a real file, download it
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      // use provided name or fallback
+      a.download = event.fileName || `file_${Date.now()}`;
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+      console.log('File downloaded:', event.fileName);
+    },
+    error: (err) => {
+      console.error('Download failed:', err);
+      this.dialog.alert('Failed to download the file. Please try again.');
+    }
+  });
+}
 
   showStudentDetailsModal(data: any[]): void {
     const clean = (val: any) => val && val !== 'NA' && val !== '0' && val.toString().trim() !== '';
+      const formatDuration = (val: any) => clean(val) ? `${val} year(s)` : null;
+
+    const formatCurrentYear = (courseApplied: any) => {
+      if (!clean(courseApplied) || !courseApplied.includes('-')) return null;
+
+      const yearPart = courseApplied.split('-').pop()?.trim(); // take last part after '-'
+      const yearMap: { [key: string]: string } = {
+        '1': '1st Year',
+        '2': '2nd Year',
+        '3': '3rd Year',
+        '4': '4th Year',
+        '5': '5th Year'
+      };
+
+      return yearMap[yearPart] || null;
+    };
+
     this.selectedStudentDetails = {
       applicationId: clean(data[0]) ? data[0] : null,
       childName: clean(data[1]) ? data[1] : null,
@@ -279,8 +635,8 @@ fieldList = [
       aggregate: clean(data[17]) ? data[17] : null,
       schemeApplied: clean(data[11]) ? data[11] : null,
       courseApplied: clean(data[20]) ? data[20] : null,
-      courseDuration: clean(data[19]) ? data[19] : null,
-      currentYear: clean(data[20]) ? data[20]?.slice(-1) : null,
+      courseDuration: formatDuration(data[19]),
+      currentYear: formatCurrentYear(data[20]),
       doc1: clean(data[23]) ? data[23] : null,
       doc2: clean(data[24]) ? data[24] : null,
       doc3: clean(data[25]) ? data[25] : null,
@@ -293,4 +649,81 @@ fieldList = [
       modal.show();
     }
   }
+
+    onReset(): void {
+    this.studentForm.reset();
+    this.applicationID = '';
+    this.selectedFiles ={};
+    this.removeFiles= {};
+    }
+printStudentDetails(): void {
+  const modalContent = document.querySelector('#studentDetailsModal .modal-body') as HTMLElement;
+  const printArea = document.getElementById('printArea');
+
+  if (!modalContent || !printArea) return;
+
+  // Copy modal body into .content
+  const contentDiv = printArea.querySelector('.content') as HTMLElement;
+  if (contentDiv) {
+    contentDiv.innerHTML = modalContent.innerHTML;
+  }
+
+  printArea.style.display = 'block';
+
+  // ✅ Show loader
+  this.loader.show();
+
+  html2canvas(printArea, { scale: 2, useCORS: true }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+
+    if (!imgData.startsWith('data:image/png')) {
+      console.error('❌ Invalid PNG data');
+      printArea.style.display = 'none';
+      this.loader.hide();
+      this.dialog.alert('Unexpected error while processing the data, Please try again!', 'ALERT');
+      return;
+    }
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    // ✅ Load logo and center it
+    const logo = 'logo/new_logo.jpeg';
+    const logoImg = new Image();
+    logoImg.src = logo;
+
+    logoImg.onload = () => {
+      const logoWidth = 45;
+      const logoHeight = 23;
+      const xPos = (pageWidth - logoWidth) / 2;
+      const yPos = 10;
+
+      pdf.addImage(logoImg, 'JPEG', xPos, yPos, logoWidth, logoHeight);
+
+      // Content starts below logo
+      const contentY = yPos + logoHeight + 10;
+      pdf.addImage(imgData, 'PNG', 0, contentY, pageWidth, pageHeight - contentY);
+
+      // ✅ Save file
+      pdf.save(`Application_${this.selectedStudentDetails.childName}_${this.selectedStudentDetails.applicationId}.pdf`);
+
+      // ✅ Hide loader and show confirmation
+      this.loader.hide();
+      this.dialog.alert(
+        'File has been downloaded successfully.',
+        'CONFIRMATION'
+      );
+
+      printArea.style.display = 'none';
+    };
+  }).catch(err => {
+    console.error('❌ html2canvas failed:', err);
+    this.loader.hide();
+    this.dialog.alert('Failed to generate Pdf file. Please try again.', 'ALERT');
+    printArea.style.display = 'none';
+  });
+}
+
+  
 }

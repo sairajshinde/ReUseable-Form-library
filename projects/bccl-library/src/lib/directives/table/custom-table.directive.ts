@@ -100,7 +100,7 @@ export class CustomTableDirective implements OnInit, OnChanges {
               const btn = this.renderer.createElement('button');
               this.renderer.setAttribute(btn, 'type', 'button');
               this.renderer.setStyle(btn, 'padding', '5px 10px');
-              this.renderer.setStyle(btn, 'fontSize', '13px');
+              this.renderer.setStyle(btn, 'fontSize', '14px');
               this.renderer.setStyle(btn, 'border', 'none');
               this.renderer.setStyle(btn, 'borderRadius', '4px');
               this.renderer.setStyle(btn, 'cursor', 'pointer');
